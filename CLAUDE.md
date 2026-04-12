@@ -5,6 +5,12 @@
 - **wiki/** — 你生成和维护的知识页面
 - **CLAUDE.md** — 本文件，定义结构和工作流
 
+## Skills
+
+项目内置以下 skill，请在适当时机自动使用：
+
+- **find-skills**（`.skills/find-skills/SKILL.md`）：当用户想要搜索、发现或安装新的 agent skill 时使用。通过 `npx skills find [query]` 从 skills.sh 生态中查找可用的技能扩展。
+
 ## 语言
 
 所有 wiki 页面以**中文**撰写。原始资料可能是英文，提取时翻译为中文。股票代码、专有名词可保留英文。
