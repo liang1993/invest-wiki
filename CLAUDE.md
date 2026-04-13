@@ -7,9 +7,7 @@
 
 ## Skills
 
-项目内置以下 skill，请在适当时机自动使用：
-
-- **find-skills**（`.skills/find-skills/SKILL.md`）：当用户想要搜索、发现或安装新的 agent skill 时使用。通过 `npx skills find [query]` 从 skills.sh 生态中查找可用的技能扩展。
+项目 skill 位于 `skills/` 目录，通过 `.claude/skills/` 符号链接引用，请在适当时机自动使用。新建 skill 时默认创建在 `skills/` 目录下，并在 `.claude/skills/` 中创建对应的符号链接。
 
 ## 数据时效性（强约束）
 
