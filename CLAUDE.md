@@ -33,12 +33,22 @@ wiki/
   index.md    # 内容目录索引（每个页面一行）
   log.md      # 操作日志
   stocks/     # 个股研究页（每只股票一个文件）
+    focus/    # 重点关注个股（符号链接→上级同名文件）
   funds/      # 基金/ETF 研究页
   macro/      # 宏观经济主题页
   sectors/    # 行业/板块分析页
   strategies/ # 投资策略与框架
   journal/    # 投资日志与复盘
 ```
+
+## 重点关注列表（全局约束）
+
+`wiki/stocks/focus/` 目录存放重点关注个股的**符号链接**，指向 `wiki/stocks/` 下的同名文件。
+
+- **所有需要消费关注列表的 skill**（如 periodic-review、value-invest 等）统一从此目录获取列表，不得各自维护独立的关注列表
+- 添加关注：`ln -sf ../xxx.md wiki/stocks/focus/`
+- 移除关注：删除 `wiki/stocks/focus/` 中对应的符号链接
+- `wiki/stocks/` 中未被链接到 `focus/` 的个股仍保留分析页面，只是不在定期复盘等流程中自动追踪
 
 ## 命名规范
 
