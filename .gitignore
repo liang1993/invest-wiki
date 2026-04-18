@@ -1,4 +1,5 @@
 .DS_Store
 .trae/
 .claude/
+.obsidian/
 .claude/settings.local.json
