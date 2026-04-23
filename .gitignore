@@ -3,3 +3,5 @@
 .claude/
 .obsidian/
 .claude/settings.local.json
+private/
+CLAUDE.local.md
