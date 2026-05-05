@@ -135,10 +135,10 @@ updated: 2026-04-23
 ## 交叉引用
 
 - 相关个股分析：
-  - [腾讯控股](../internet/腾讯控股.md)
-  - [阿里巴巴](../internet/阿里巴巴.md)
-  - [美团](../internet/美团.md)
-  - [小米集团](../internet/小米集团.md)
+  - [腾讯控股](../stocks/internet/腾讯控股.md)
+  - [阿里巴巴](../stocks/internet/阿里巴巴.md)
+  - [美团](../stocks/internet/美团.md)
+  - [小米集团](../stocks/internet/小米集团.md)
 - 同类 ETF（供对比）：
   - 恒生科技指数（区别：硬科技更多、含美团/快手/京东等但无阿里美股）
   - 恒生互联网 ETF（513330，区别：只含港股、不含美股 ADR）
