@@ -1,0 +1,16 @@
+{
+  "name": "xueqiu-fetch",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "login": "node fetch.mjs login",
+    "fetch": "node fetch.mjs fetch"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "turndown": "^7.2.0"
+  }
+}
