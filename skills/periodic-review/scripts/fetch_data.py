@@ -4,7 +4,7 @@
 用法：python3 fetch_data.py [--stocks] [--forex] [--all]
 
 模块：
-  --stocks   关注个股当前价（yfinance）
+  --stocks   关注个股当前价（A 股走腾讯批量、港股走 yfinance）
   --forex    人民币汇率（yfinance）
   --all      以上全部（默认）
 
@@ -16,10 +16,15 @@ import datetime
 import glob
 import os
 import re
+import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.join(SCRIPT_DIR, "..", "..", "..")
 FOCUS_DIR = os.path.join(PROJECT_ROOT, "wiki", "stocks", "focus")
+
+# 复用 value-invest 的腾讯行情封装，避免重复实现
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "skills", "value-invest", "scripts"))
+import quote_tencent  # noqa: E402
 
 
 def _code_to_yf_ticker(code: str) -> str:
@@ -82,34 +87,58 @@ def _extract_close(row):
     return val
 
 
-def fetch_stocks():
-    """获取关注个股最新收盘价"""
-    try:
-        import yfinance as yf
-    except ImportError:
-        print("  错误: 请先安装 yfinance — pip install yfinance")
-        return
+def _yf_ticker_to_a_code(ticker: str) -> str | None:
+    """yfinance 格式 (`600519.SS` / `000858.SZ`) → 6 位 A 股代码；非 A 股返回 None"""
+    if ticker.endswith((".SS", ".SZ")):
+        return ticker.split(".")[0]
+    return None
 
+
+def fetch_stocks():
+    """获取关注个股最新收盘价：A 股走腾讯批量，港股走 yfinance"""
     watchlist = load_focus_list()
     if not watchlist:
         print("  wiki/stocks/focus/ 目录为空或不存在，无关注个股")
         return
 
-    codes = list(watchlist.values())
-
     print("=" * 60)
     print(f"关注个股当前价（共 {len(watchlist)} 只）")
     print("=" * 60)
 
-    # 逐只下载，避免单只/多只时 DataFrame 结构差异
+    a_share, others = {}, {}
     for name, ticker in watchlist.items():
+        code = _yf_ticker_to_a_code(ticker)
+        (a_share if code else others)[name] = code or ticker
+
+    if a_share:
+        quotes = quote_tencent.get_quotes(list(a_share.values()))
+        for name, code in a_share.items():
+            q = quotes.get(code)
+            if q and q.get("price") is not None:
+                pct = q.get("change_pct")
+                pct_str = f"  {pct:+.2f}%" if isinstance(pct, (int, float)) else ""
+                print(f"  {name} ({code}): {q['price']:.2f}{pct_str}")
+            else:
+                print(f"  {name} ({code}): 腾讯无返回")
+
+    if others:
         try:
-            df = yf.download(ticker, period="5d", progress=False)
-            latest = df.dropna().iloc[-1]
-            close = _extract_close(latest)
-            print(f"  {name} ({ticker}): {close:.2f}")
-        except Exception as e:
-            print(f"  {name} ({ticker}): 获取失败 - {e}")
+            import yfinance as yf
+        except ImportError:
+            print("  错误: 港股行情需要 yfinance — pip install yfinance")
+            return
+        tickers = list(others.values())
+        # 单只返回扁平列；多只返回 MultiIndex (字段, 代码)
+        # auto_adjust=False 锁定为原始收盘价，避免 yfinance 默认值变更影响显示口径
+        df = yf.download(tickers, period="5d", progress=False, auto_adjust=False)
+        is_multi = len(tickers) > 1
+        for name, ticker in others.items():
+            try:
+                series = df[("Close", ticker)] if is_multi else df["Close"]
+                close = series.dropna().iloc[-1]
+                print(f"  {name} ({ticker}): {close:.2f}")
+            except (KeyError, IndexError) as e:
+                print(f"  {name} ({ticker}): 获取失败 - {e}")
 
 
 def fetch_forex():
@@ -126,7 +155,7 @@ def fetch_forex():
     print("=" * 60)
 
     try:
-        fx = yf.download(["CNY=X"], period="5d", progress=False)
+        fx = yf.download(["CNY=X"], period="5d", progress=False, auto_adjust=False)
         fx_clean = fx.dropna()
         if len(fx_clean) >= 1:
             rate = _extract_close(fx_clean.iloc[-1])
