@@ -8,3 +8,5 @@ CLAUDE.local.md
 scripts/xueqiu-fetch/.xq-profile/
 scripts/xueqiu-fetch/node_modules/
 scripts/xueqiu-fetch/package-lock.json
+__pycache__/
+*.pyc
