@@ -566,6 +566,41 @@ python3 skills/value-invest/scripts/fetch_data.py 600600
 | 减仓价 < 当前价 ≤ 清仓价 | 高估，分批减仓 | **减仓区间** |
 | 当前价 > 清仓价 | 显著高估，考虑清仓 | **清仓区间** |
 
+### Step 9: 独立校验（subagent，按需触发）
+
+**为什么是独立校验**：主 LLM 是"数据采集 + 建模 + 写作"角色，对自己产出的数字看不到盲点（确认偏差）。CLAUDE.md 五项 sanity check 是纪律存在但执行靠自觉。独立 subagent 提供"另一双不带上下文的眼睛"，是结构性的解决方案。过去案例：中国建筑 v1（PE 反推错 16% 高估）/ 平安银行 5/9（PB 漏扫）/ 招行 v1.0（-3bp 接受、0.85 PB 心算）/ 焦点科技 v1（Q1 -12% 没追一阶原因）。
+
+**触发与跳过条件** —— **single source 见** [`skills/value-invest-verify/SKILL.md` 的 "何时触发" 章节](../value-invest-verify/SKILL.md#何时触发)。本节不重复列出，避免两份文档失同步。简言之：首次建档 / 锚点修订 > 10% / 多模型差距 > 30% 触发；轻量更新或 < 30 天内已校验则跳过。
+
+**实施方式**：调用独立 sub-skill **`value-invest-verify`**，它会用 `Agent` 工具调起 `general-purpose` subagent 执行**零上下文**校验（subagent 不读主对话历史，只读最终 wiki 文件、独立跑脚本、独立 WebSearch）。
+
+详细规范见 [`skills/value-invest-verify/SKILL.md`](../value-invest-verify/SKILL.md) + [`skills/value-invest-verify/prompt-template.md`](../value-invest-verify/prompt-template.md)。
+
+**Step 9 在主流程中的执行顺序**：
+
+```
+Step 1-8 完成 → 写 wiki/raw articles → [Step 9 校验] → 根据校验报告决定是否修订 → 提交
+                                          ↑
+                                这里调起独立 subagent
+```
+
+**重要**：Step 9 是在 wiki 已写好之后执行——校验员核对**已写定的最终版本**，而不是分析过程。这保证了"独立性"（subagent 不被主作者的思路引导）。
+
+**禁止行为**：
+
+- ❌ 跳过 Step 9 仅因为"我自己核对过了"——这违背独立校验的本意
+- ❌ 在 subagent prompt 里塞主分析的结论（"市场过度悲观"、"NIM -5bp"、"合理价 46 元"）——破坏零上下文
+- ❌ **未经层次 1 独立 fetch 核对就直接信任 subagent 报告**——这是"用一个偏差替换另一个偏差"。subagent 报告**不是终态**，必须走 Step 3.5 层次 1 仲裁后才能定终态（详见 [`value-invest-verify/SKILL.md`](../value-invest-verify/SKILL.md) Step 3.5）
+- ❌ **未经层次 1 独立 fetch 核对就直接驳回 subagent 报告**——主 agent 不能凭"我觉得 sub 错了"修改结论；必须独立 fetch 后给出仲裁结论
+
+**校验报告处理**：
+
+| 校验结果 | 主 agent 行动 |
+|---|---|
+| ✅ Pass 全部 | 直接提交，校验报告归档至 `raw/articles/stocks/<name>/<date>_verify_report.md`（verified: true）|
+| ⚠️ Warning 项 | 标注但不强制修订，问用户是否修订 |
+| ❌ Fail 项 | **必须修订** wiki 对应章节，frontmatter 加 `v1.x 校验修订`，log.md 加 LINT 条目 |
+
 ## 输出格式
 
 按 `templates/stock-analysis.md` 模板输出。模板包含：投资结论价格表、合理PE推导表、多模型估值、远期分析（如适用）、利润分解与交叉验证（如已执行Step 1B）、安全边际与买卖价锚点、核心财务数据、同行对比、风险提示、关键关注点。
