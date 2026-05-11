@@ -133,13 +133,77 @@ subagent 返回一份**三档分级清单**：
 
 把 Step 3.5/3.6 仲裁后的**最终结论**呈现给用户（不要塞回 subagent 原始报告——经过仲裁的更可信）。
 
-如果用户决定修订：
-- 按 Fail / Warning 项逐条修订 wiki
-- 在 frontmatter 加 `v1.x 校验修订` 说明
-- log.md 加 LINT 条目记录修订内容
+#### 4.1 校验报告归档（无论修订与否都做）
 
-如果用户认为不影响结论：
-- 不修订，但**仍应把校验报告归档**到 `raw/articles/stocks/<name>/<YYYY-MM-DD>_verify_report.md`（frontmatter 包含 `type: verify_report` + `verified: true`）作为时间戳证据
+- 归档到 `raw/articles/stocks/<name>/<YYYY-MM-DD>_verify_report.md`
+- Frontmatter 包含 `type: verify_report` + `verified: true`，作为时间戳证据
+
+#### 4.2 用户决定修订时——**强制走 4 步完整落地**（不只是改 frontmatter）
+
+**为什么强调"完整落地"**：2026-05-11 招行 v1.2 + 茅台 v1.1 + focus list 全量回归（Phase 1+2+3）实测发现——**Phase 1+2 只改 frontmatter 标注的做法是不完整的**，wiki 正文还有大量旧数据、过期叙事、未同步区间判定。下游 skill（periodic-review / portfolio-review）grep wiki 时会读到错误数据。**Phase 3 落地工作量是 Phase 1+2 的 2-3 倍**，但是必须的。下次跑 verify 强制走完整闭环。
+
+##### Step 4.2.1：Frontmatter 加 v1.x 校验修订说明（最轻量但易导致下游误用）
+
+```yaml
+> **2026-MM-DD v1.x 独立校验修订**（value-invest-verify focus 回归）：
+> - **Fail N [严重度]** 摘要
+> - 校验报告：[路径]
+> - 估值锚点变化 OR 保持
+```
+
+⚠️ **仅 frontmatter 标注不构成完整修订**——必须继续走 4.2.2。
+
+##### Step 4.2.2：wiki 正文贯穿（最容易遗漏的步骤）
+
+**对每项 Fail / 影响结论的 Warning，必须 grep 该数字 / 叙事在 wiki 内出现的所有位置**，不能只改一处。
+
+实测教训：
+- 海螺水泥净现金 **394 亿出现 5 处**（核心判断 / 一句话 / PE 推导 / 净资产分拆 / 看多论点），只改 frontmatter 会让下游读到 5 处旧数据
+- 紫金矿业合理价 **31 元出现 3 处**（结论速览表 / 综合估值表 / 锚点 A 公式）
+- 汇川技术"**67-71 元处乐观区间下沿**" 出现 2 处（价格区间表 / 操作建议段一句话总结）
+- 蜜雪集团"**霸王茶姬崛起**" 叙事出现 3 处（一句话 / 同行对比段 / 风险点段）
+
+**强制流程**：
+1. 对每项 Fail/影响结论的 Warning，先 `grep -n "<key term>" wiki/stocks/.../X.md` 看出现位置
+2. 逐处修订，加 `（v1.x verify 修订）` 标注
+3. 修订后再 `grep -n` 一次确认无遗漏
+
+##### Step 4.2.3：跨文件一致性同步
+
+修订完 wiki 主页面后，必须同步：
+
+| 同步对象 | 内容 |
+|---|---|
+| `wiki/index.md` | 该标的的个股摘要行（含估值锚点 / 区间判定 / 关键叙事）|
+| `wiki/stocks/价格区间总览.md`（如存在该标的）| 四档锚点价格 |
+| 相关 sectors/行业 wiki（如该标的被引用作为同业对比）| 同业数据更新 |
+| `wiki/journal/<最近一次复盘>.md` | 如已写入复盘的区间判定与本次修订冲突，加 caveat |
+
+##### Step 4.2.4：log.md 加 LINT 条目
+
+记录本次修订的：触发原因 / 修订项数 / 关键 Fail / 影响估值 / surprising 发现 / 最大不确定性。
+
+#### 4.3 区间判定术语契约（CLAUDE.md 6 档白名单）
+
+修订区间判定时必须从白名单取（不允许自创术语）：
+- **个股 6 档**：`买入区间` / `关注区间` / `持有区间` / `谨慎区间` / `减仓区间` / `清仓区间`
+- 位置修饰：`XX 区间下沿/上沿/中段/中位`
+
+wiki 正文与 index.md **同一标的的区间判定必须一致**（下游 skill 依赖此契约）。
+
+#### 4.4 完整闭环 checklist（修订前自检）
+
+| 步骤 | 完成 |
+|---|---|
+| □ 校验报告已归档到 `raw/articles/stocks/<name>/<YYYY-MM-DD>_verify_report.md` |
+| □ Frontmatter 加 v1.x 修订说明 |
+| □ 对每项 Fail grep 该数字 / 叙事出现的所有位置，逐处修订 |
+| □ index.md 个股摘要行同步 |
+| □ 如修订了区间判定：从 6 档白名单取，wiki 正文与 index.md 一致 |
+| □ 如影响价格区间总览 / sectors 引用：同步 |
+| □ log.md 加 LINT 条目 |
+
+**所有 □ 全部 ✓ 才算完整修订**。仅做前 2 项是"半完成"状态，下游会读错数据。
 
 ## 五项校验框架
 
