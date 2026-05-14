@@ -439,8 +439,8 @@ subagent 应**结合**以下信息综合判断 Step 2C 6 类质化框架（**不
 
 | 字段 | 含义 | 示例 |
 |---|---|---|
-| `{wiki_file_path}` | 目标 wiki 文件绝对路径 | `/Users/bytedance/liang/invest-wiki/wiki/stocks/financial/招商银行.md` |
-| `{raw_articles_path}` | 对应归档目录路径（如有） | `/Users/bytedance/liang/invest-wiki/raw/articles/stocks/招商银行/` |
+| `{wiki_file_path}` | 目标 wiki 文件绝对路径 | `<repo-root>/wiki/stocks/financial/招商银行.md` |
+| `{raw_articles_path}` | 对应归档目录路径（如有） | `<repo-root>/raw/articles/stocks/招商银行/` |
 | `{YYYY-MM-DD}` | 校验当日日期 | `2026-05-11` |
 
 ## 调用示例（主 agent 视角）
@@ -457,9 +457,9 @@ Agent({
 
 ## 待校验的 wiki 文件
 
-**路径**：/Users/bytedance/liang/invest-wiki/wiki/stocks/financial/招商银行.md
+**路径**：<repo-root>/wiki/stocks/financial/招商银行.md
 
-**关联归档**：/Users/bytedance/liang/invest-wiki/raw/articles/stocks/招商银行/
+**关联归档**：<repo-root>/raw/articles/stocks/招商银行/
 """
 })
 ```
