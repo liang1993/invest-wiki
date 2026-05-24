@@ -25,17 +25,18 @@ skills/media-fetch/
 
 | 平台 | URL 形态 | 解析路径 | 输出 |
 |---|---|---|---|
-| **Douyin** | `v.douyin.com/xxx` / `www.douyin.com/video/xxx` | Playwright 启动 headless Chromium，监听 `douyinvod.com` 域 mp4 网络响应 + DOM `<video>.src` 双路径 | `.mp4` 无水印视频 |
+| **Douyin** | `v.douyin.com/xxx` / `www.douyin.com/video/xxx` | Playwright 启动 headless Chromium，监听真实 CDN（`douyinvod.com` / `zjcdn.com` / `aweme.snssdk.com`）的 mp4 网络响应 + DOM `<video>.src` 双路径；过滤 placeholder（`uuu_265` H265 探测视频）。长视频自动识别 DASH 分流（`media-video-*` + `media-audio-*`），下载两路后用 ffmpeg 合并 | `.mp4` 无水印视频（含音轨） |
 | **Apple Podcasts** | `podcasts.apple.com/{country}/podcast/{slug}/id{NUM}[?i={trackId}]` | iTunes Search API（`lookup?id={podcast_id}&entity=podcastEpisode`）拿 episode 元数据 + `episodeUrl` 直链 | `.mp3` 或 `.m4a`（保留原始扩展名）|
 
 ## 依赖（首次使用前一次性配置）
 
 ```bash
+brew install ffmpeg                                    # 抖音长视频 DASH 合并必需
 pip3 install --break-system-packages playwright
 python3 -m playwright install chromium
 ```
 
-> Apple Podcasts 路径**不需要 Playwright**——iTunes API 公开 + HTTP 直下，纯标准库。但 fetch.py 启动时仍会 import playwright 检查；如果只用 podcast 不用抖音，可以略过 chromium 下载。
+> Apple Podcasts 路径**不需要 Playwright / ffmpeg**——iTunes API 公开 + HTTP 直下，纯标准库。但 fetch.py 启动时仍会 import playwright 检查；如果只用 podcast 不用抖音，可以略过 chromium 下载。ffmpeg 仅在抖音命中 DASH 分流时才被调用。
 
 > 历史：2026-05 之前 douyin 用 `douyin-tiktok-scraper`，因抖音 API 签名/msToken 失效而废弃；改用 Playwright 让抖音页面自然加载并签出 cookies，再监听网络请求拿无水印 mp4 URL。
 
@@ -93,7 +94,10 @@ Douyin 特有：
 
 | 现象 | 可能原因 | 处理 |
 |---|---|---|
-| `未捕获到视频网络请求` | 视频已删除 / 是图文/直播 / 抖音页面结构变更 | 浏览器手动打开 URL 确认可播；若可播仍失败，临时改 headed 模式（去掉 `headless=True`）人工查看 |
+| `未捕获到视频网络请求` | 视频已删除 / 是图文/直播 / 抖音页面结构变更 / 视频加载慢于 60s 等待窗口 | 浏览器手动打开 URL 确认可播；若可播仍失败，临时改 headed 模式（去掉 `headless=True`）人工查看；或延长 `fetch_douyin()` 的等待循环上限 |
+| 拿到很小的 mp4（< 1MB / < 5 秒） | 抖音改了 placeholder 视频文件名（当前过滤 `uuu_265` / `douyinstatic.com`） | 检查 `info.json` 的 `media_url`，确认是不是新 placeholder；更新 `DOUYIN_PLACEHOLDER_KEYWORDS` |
+| ffmpeg 提示 `Output file does not contain any stream` 在下游 asr 中 | DASH 视频流被识别但音频流没识别成功，合并未触发 → 输出文件无音轨 | 检查 `info.json` 里 `audio_media_url` 是否为 `null`；若是，看 `candidates` 列表里是否有 `media-audio-*` URL 没被分类——可能是抖音又改了 URL 模式 |
+| `ffmpeg 合并失败` | ffmpeg 不在 PATH / 音视频 codec 不兼容 `-c copy` | 确认 `brew install ffmpeg`；codec 问题改成 `-c:v copy -c:a aac` 重编音轨 |
 | `下载失败 403` | 防盗链 / mp4 URL 过期（CDN signed URL 通常分钟级有效） | 立即重试；超过几分钟需重新拉一次 |
 | `ModuleNotFoundError: playwright` | playwright 未安装 | `pip3 install --break-system-packages playwright` |
 | `Executable doesn't exist` | 装了 playwright 包但没装 chromium | `python3 -m playwright install chromium` |

@@ -15,7 +15,9 @@ import asyncio
 import datetime
 import json
 import re
+import subprocess
 import sys
+import tempfile
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -25,6 +27,12 @@ UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 )
+
+# Douyin CDN 识别（2026-05 起长视频走 DASH 分流，域名不再固定为 douyinvod.com）
+DOUYIN_REAL_CDN_HOSTS = ("douyinvod.com", "zjcdn.com", "aweme.snssdk.com")
+DOUYIN_PLACEHOLDER_HOSTS = ("douyinstatic.com",)  # 抖音 H265 探测 / 静态资源
+DOUYIN_PLACEHOLDER_KEYWORDS = ("uuu_265",)
+MIN_VIDEO_SIZE = 500_000  # bytes；过滤碎片 / 探测流
 
 
 def detect_platform(url: str) -> str:
@@ -50,23 +58,54 @@ def check_douyin_deps():
         sys.exit(1)
 
 
+def _is_douyin_media_url(u: str) -> bool:
+    """过滤 placeholder（uuu_265 H265 探测）+ 静态域名，只放行真实 CDN 视频流。"""
+    if any(h in u for h in DOUYIN_PLACEHOLDER_HOSTS):
+        return False
+    if any(k in u for k in DOUYIN_PLACEHOLDER_KEYWORDS):
+        return False
+    if not any(h in u for h in DOUYIN_REAL_CDN_HOSTS):
+        return False
+    return "/video/tos/" in u or u.endswith(".mp4") or "mime_type=video" in u
+
+
 async def fetch_douyin(url: str) -> dict:
-    """启动 headless Chromium，捕获视频网络请求 + DOM <video>.src。"""
+    """启动 headless Chromium，捕获视频网络请求 + DOM <video>.src。
+
+    抖音 2026-05 起长视频使用 DASH 分流：
+    - `media-video-avc1` / `hvc1`：纯视频流（无音轨）
+    - `media-audio-und-mp4a`：纯音频流
+    本函数同时捕获两路流；下游 main() 检测到 `audio_media_url` 不为 None
+    时会用 ffmpeg merge。短视频通常音视频合一，只捕获 video 流即可。
+    """
     from playwright.async_api import async_playwright
 
-    video_urls: list[str] = []
+    media_log: list[tuple[str, int, bool]] = []  # (url, size, is_audio)
     page_title = ""
     aweme_id = ""
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        try:
+            browser = await p.chromium.launch(headless=True)
+        except Exception as e:
+            if "Executable doesn't exist" in str(e):
+                raise RuntimeError(
+                    "Chromium 未安装，请运行：python3 -m playwright install chromium"
+                ) from e
+            raise
         context = await browser.new_context(user_agent=UA, viewport={"width": 1280, "height": 800})
         page = await context.new_page()
 
         def on_response(resp):
             u = resp.url
-            if "douyinvod.com" in u and (u.endswith(".mp4") or "mime_type=video_mp4" in u):
-                video_urls.append(u)
+            if not _is_douyin_media_url(u):
+                return
+            try:
+                cl = int(resp.headers.get("content-length") or 0)
+            except (TypeError, ValueError):
+                cl = 0
+            is_audio = "media-audio-" in u
+            media_log.append((u, cl, is_audio))
 
         page.on("response", on_response)
 
@@ -76,7 +115,19 @@ async def fetch_douyin(url: str) -> dict:
             await page.wait_for_selector("video", timeout=15000)
         except Exception:
             pass
-        await page.wait_for_timeout(5000)
+        # 触发播放,让 CDN 开始供流
+        try:
+            await page.evaluate(
+                "const v = document.querySelector('video');"
+                "if (v) { v.muted = true; v.play().catch(()=>{}); }"
+            )
+        except Exception:
+            pass
+        # 循环等待直到捕到至少一条 size > MIN_VIDEO_SIZE 的流（长视频 metadata 加载慢）
+        for _ in range(12):  # 最多 60s
+            await page.wait_for_timeout(5000)
+            if any(cl >= MIN_VIDEO_SIZE for _, cl, _ in media_log):
+                break
 
         page_title = await page.title()
         m = re.search(r"/video/(\d+)", page.url)
@@ -85,33 +136,41 @@ async def fetch_douyin(url: str) -> dict:
 
         try:
             src = await page.eval_on_selector("video", "v => v.src || v.currentSrc")
-            if src and not src.startswith("blob:"):
-                video_urls.append(src)
+            if src and not src.startswith("blob:") and _is_douyin_media_url(src):
+                media_log.append((src, 0, False))  # DOM <video>.src 必然是视频流
         except Exception:
             pass
 
         cookies = await context.cookies()
         await browser.close()
 
-    seen = set()
-    candidates = []
-    for u in video_urls:
-        if u in seen or u.startswith("blob:"):
-            continue
-        seen.add(u)
-        candidates.append(u)
+    # 按 size 排序选最大的 video / audio 流（同一资源有多次 range request，取最大那条）
+    videos: list[tuple[str, int]] = []
+    audios: list[tuple[str, int]] = []
+    for u, cl, is_audio in media_log:
+        (audios if is_audio else videos).append((u, cl))
+    videos.sort(key=lambda x: -x[1])
+    audios.sort(key=lambda x: -x[1])
 
-    if not candidates:
+    if not videos:
         raise RuntimeError("未捕获到视频网络请求（可能是图文 / 直播 / 抖音页面结构变更）")
+
+    video_url = videos[0][0]
+    audio_url = audios[0][0] if audios else None
 
     cookie_header = "; ".join(
         f"{c['name']}={c['value']}" for c in cookies if "douyin" in c.get("domain", "")
     )
+    candidates = [u for u, _ in videos[:5]]
+    if audio_url:
+        candidates.append(audio_url)
     return {
         "platform": "douyin",
         "id": aweme_id or "unknown",
         "title": page_title,
-        "media_url": candidates[0],
+        "media_url": video_url,
+        # 非 None = DASH 分流，main() 会下载两路再用 ffmpeg merge
+        "audio_media_url": audio_url,
         "ext": "mp4",
         "candidates": candidates,
         "extra": {},
@@ -196,18 +255,29 @@ def fetch_apple_podcast(url: str) -> dict:
 
 # ===== Generic download =====
 
-def download_to(url: str, dest: Path, headers: dict) -> int:
-    """带自定义 headers 流式下载到目标文件，返回写入字节数。"""
+def download_to(url: str, dest: Path, headers: dict, timeout: int = 600) -> int:
+    """带自定义 headers 流式下载到目标文件，返回写入字节数。
+
+    先写入 `.part` 临时文件，成功后原子 rename 到 dest；失败清理临时文件，
+    避免半成品 mp4 误导下游（ASR / 用户手动检查）。
+    timeout 是整个 GET 的上限（urllib 不支持 per-chunk timeout），默认 600s。
+    """
     req = urllib.request.Request(url, headers=headers)
+    tmp = dest.with_suffix(dest.suffix + ".part")
     total = 0
-    with urllib.request.urlopen(req, timeout=120) as resp, open(dest, "wb") as f:
-        while True:
-            chunk = resp.read(1 << 16)
-            if not chunk:
-                break
-            f.write(chunk)
-            total += len(chunk)
-    return total
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp, open(tmp, "wb") as f:
+            while True:
+                chunk = resp.read(1 << 16)
+                if not chunk:
+                    break
+                f.write(chunk)
+                total += len(chunk)
+        tmp.replace(dest)
+        return total
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def parse_args():
@@ -247,13 +317,49 @@ def main():
     out_path = target / f"{date}_{platform}_{data['id']}.{data['ext']}"
     info_path = out_path.with_suffix(".info.json")
 
-    print(f"→ 下载到 {out_path}", file=sys.stderr)
-    try:
-        bytes_written = download_to(data["media_url"], out_path, data["headers"])
-    except Exception as e:
-        print(f"ERROR: 下载失败：{e}", file=sys.stderr)
-        sys.exit(1)
-    print(f"→ 写入 {bytes_written / 1024 / 1024:.2f} MB", file=sys.stderr)
+    audio_url = data.get("audio_media_url")
+    if audio_url:
+        # DASH 路径：分别下载 video / audio 流到临时文件，用 ffmpeg merge
+        with tempfile.TemporaryDirectory() as tmp:
+            v_tmp = Path(tmp) / "video.mp4"
+            a_tmp = Path(tmp) / "audio.m4a"
+            print(f"→ DASH 下载视频流", file=sys.stderr)
+            try:
+                v_bytes = download_to(data["media_url"], v_tmp, data["headers"])
+                print(f"→ DASH 下载音频流", file=sys.stderr)
+                a_bytes = download_to(audio_url, a_tmp, data["headers"])
+            except Exception as e:
+                print(f"ERROR: 下载失败：{e}", file=sys.stderr)
+                sys.exit(1)
+            print(f"→ ffmpeg 合并 → {out_path.name}", file=sys.stderr)
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-y", "-i", str(v_tmp), "-i", str(a_tmp),
+                     "-c", "copy", str(out_path)],
+                    check=True, capture_output=True,
+                )
+            except FileNotFoundError:
+                print("ERROR: 未找到 ffmpeg（brew install ffmpeg）", file=sys.stderr)
+                sys.exit(1)
+            except subprocess.CalledProcessError as e:
+                err = e.stderr.decode(errors="ignore")[:500] if e.stderr else "(no stderr)"
+                print(f"ERROR: ffmpeg 合并失败：{err}", file=sys.stderr)
+                sys.exit(1)
+            bytes_written = out_path.stat().st_size
+            print(
+                f"→ 写入 {bytes_written/1024/1024:.2f} MB"
+                f"（视频 {v_bytes/1024/1024:.2f}MB + 音频 {a_bytes/1024/1024:.2f}MB）",
+                file=sys.stderr,
+            )
+    else:
+        # 短视频 / podcast 路径：音视频合一，直接下载
+        print(f"→ 下载到 {out_path}", file=sys.stderr)
+        try:
+            bytes_written = download_to(data["media_url"], out_path, data["headers"])
+        except Exception as e:
+            print(f"ERROR: 下载失败：{e}", file=sys.stderr)
+            sys.exit(1)
+        print(f"→ 写入 {bytes_written / 1024 / 1024:.2f} MB", file=sys.stderr)
 
     info = {
         "platform": platform,
@@ -261,6 +367,7 @@ def main():
         "title": data["title"],
         "source_url": args.url,
         "media_url": data["media_url"],
+        "audio_media_url": audio_url,
         "candidates": data["candidates"],
         "extra": data["extra"],
         "fetched_at": datetime.datetime.now().isoformat(),
