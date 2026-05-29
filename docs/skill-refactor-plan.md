@@ -194,3 +194,27 @@ Phase 4   (收尾)  ─────── 依赖 Phase 2
 | 一次动太多 | 严格按 Phase 串行；每 Phase 独立 commit 可单独回滚 |
 
 > 每 Phase 结束 = 一次独立 commit + `log.md` 记一行。全部完成后 §1 终态评级应全部 ≥ ★★★★。
+
+---
+
+## 附录 A：Phase 3.1 修正（review 过校）
+
+`stock-deep-dive/references/data-discipline.md` 经实读**不是** CLAUDE.md 的全文拷贝（review 误判），而是 deep-dive **业务侧专属**内容（数字标签 / SKU 降级 / 小米年份错配教训），仅引用 CLAUDE.md 不复述。故 Phase 3.1 不删，只加交叉引用头澄清其专属定位。`scheduled-ingest` 亦早已是引用而非拷贝。**真·重复拷贝不存在**，3.1 范围归零。
+
+## 附录 B：Phase 3.2 — 36 条 LINT 教训 → 原语归类
+
+主题 tally（一条 LINT 可命中多类）：
+
+| 主题（命中数） | 归类 | 现状 |
+|---|---|---|
+| 区间术语 / 档位 (20) | **→ Hook** | Phase 1.1 已机械强制（warn-only），20 条从"靠记忆"转确定性 |
+| frontmatter 缺失 | **→ Hook** | Phase 1.2 |
+| 隐私 / private 泄漏 | **→ Hook** | Phase 0.1 pre-commit |
+| 接口漂移 / 坏接口 | **→ Eval** | Phase 0.2 smoke + known-fail |
+| 代码转换 (15 部分) | **→ Eval** | Phase 2.2 test_codes；单位 10× 残留仍需 L1 反推 |
+| 口径混用 (22) | **判断·留 Memory** | L2/L3 + verify，不可 hook |
+| 横向对标 (11) | **判断·留 Memory** | L2 WebFetch + verify |
+| 年份错配 (8) | **判断·留 Memory** | L2 报告期核对 |
+| 强叙事词 (14) | **→ Hook 候选（未做）** | 可加 lint-narrative：grep 腰斩/精准/暴跌 → 提示标"待核实"。下一个 hook 候选 |
+
+**结论**：~20 条区间术语类教训已转确定性 hook，Memory 这部分可瘦身；口径/对标/年份/叙事（判断型）仍是 Memory + verify 的天花板职责，不下沉。**强叙事词是下一个 hook 候选**。
