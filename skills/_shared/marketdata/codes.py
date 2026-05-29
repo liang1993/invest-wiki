@@ -24,15 +24,15 @@ def is_a_share(code: str) -> bool:
 
 
 def _exchange(c6: str) -> str:
-    """6 位 A 股代码 → 'sh' / 'sz' / 'bj'。"""
+    """6 位 A 股市场代码 → 'sh' / 'sz' / 'bj'。按首位覆盖股票/ETF/基金/债，**永不抛错**
+    —— is_a_share 认任意 6 位数字，此处必须覆盖全部首位，否则 ETF(510300)/债券码会
+    把 value-invest 主流程炸掉（review WARNING 1）。"""
     head = c6[0]
-    if head in "69":       # 沪 A(6) / 科创(688) / 沪 B(900)
+    if head in "5679":     # 沪：6 股票/科创 · 9 沪B · 5 ETF/LOF/基金 · 7 发行
         return "sh"
-    if head in "023":      # 深 A(0) / 中小(002) / 创业(3) / 深 B(2)
+    if head in "0123":     # 深：0 股票 · 3 创业 · 2 深B · 1 基金/债
         return "sz"
-    if head in "48":       # 北交所
-        return "bj"
-    raise ValueError(f"未知 A 股代码前缀: {c6}")
+    return "bj"            # 4/8 北交所
 
 
 def to_yf_ticker(code: str) -> str:

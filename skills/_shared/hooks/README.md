@@ -52,3 +52,4 @@ git reset -q _t.txt && rm _t.txt
 - **Hook 守确定性地板**：可机械判定的纪律（隐私模式串、术语白名单、字段存在性）。
 - **判断型不进 hook**：`[观测]` 是否与原文一致、计算链反推、口径混用——这些靠 CLAUDE.md L1/L2/L3 + `value-invest-verify`（Eval）。
 - 检测器脚本天然含检测模式（如 `pre-commit` 里的 `PRIVATE KEY`），故 `pre-commit` 的通用扫描用 git pathspec 排除 `skills/_shared/hooks/` 自身，避免自指假阳。
+- **已知启发式误报**：银行卡检测是「16–19 位连续数字」启发式（继承自原脚本），极少数 wiki 正文若出现这么长的连续数字会被拦。命中且确为误报时按 stderr 提示 `git commit --no-verify` 跳过即可；未来可收紧为「卡号常见前缀 + Luhn 校验」。

@@ -66,6 +66,13 @@ CASES = [
     (codes.to_a_code, "600519", "600519"),            # 已是 A 码，幂等
     (codes.to_a_code, "0700.HK", None),
     (codes.to_a_code, "AAPL", None),
+
+    # ── ETF / 基金（review WARNING 1：6 位非股票码不得抛错炸主流程）──
+    (codes.is_a_share, "510300", True),
+    (codes.to_yf_ticker, "510300", "510300.SS"),    # 沪深300 ETF（沪，首位 5）
+    (codes.to_yf_ticker, "159915", "159915.SZ"),    # 创业板 ETF（深，首位 1）
+    (codes.to_tencent_symbol, "510300", "sh510300"),
+    (codes.to_baostock_code, "510300", "sh.510300"),
 ]
 
 
