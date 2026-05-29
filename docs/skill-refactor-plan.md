@@ -1,6 +1,6 @@
 # 工程结构重构方案 — 对齐 Skill / Rule / Hook / Memory / Eval
 
-> 状态：待执行 | 创建：2026-05-29 | 经独立 subagent review 修订（v2）| 关联：[`data-discipline.md`](data-discipline.md)
+> 状态：**Phase 0–4 已执行**（4.2 拆 a-share/macro 为可选项，主动跳过）| 创建：2026-05-29 | 经独立 subagent review 修订（v2）| 关联：[`data-discipline.md`](data-discipline.md)
 >
 > 本方案收敛三轮分析：① value-invest 是否上 workflow（→ Skill 形态问题）② 按角色拆 skill（→ 抽共享数据层 + 缺回归 Eval）③ 五原语体检（→ 真正欠的是 Hook + Eval）。
 >

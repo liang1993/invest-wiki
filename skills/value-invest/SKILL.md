@@ -29,8 +29,7 @@ skills/value-invest/
 ├── SKILL.md                          # 本文件：分析方法论
 ├── templates/stock-analysis.md       # 输出模板（wiki页面格式）
 └── scripts/
-    ├── fetch_data.py                 # 数据获取主入口
-    └── quote_tencent.py              # 腾讯 qt.gtimg.cn 行情封装
+    └── fetch_data.py                 # 数据获取编排（底层走 skills/_shared/marketdata）
 ```
 
 ### 数据获取脚本
@@ -54,7 +53,7 @@ python3 scripts/fetch_data.py 0700.HK
 | 数据 | 主源 | 兜底 | 备注 |
 |---|---|---|---|
 | 财务摘要 | AKShare `stock_financial_abstract` (新浪) | — | 稳定，不动 |
-| A 股行情快照 | **腾讯 `qt.gtimg.cn`** (`quote_tencent.py`) | yfinance | 比 yfinance 快 ~22x，含 PE动态/PE静态/换手/5档/量比/振幅；国内可达 |
+| A 股行情快照 | **腾讯 `qt.gtimg.cn`** (`_shared/marketdata/quote_tencent.py`) | yfinance | 比 yfinance 快 ~22x，含 PE动态/PE静态/换手/5档/量比/振幅；国内可达 |
 | A 股历史日 K + PE/PB 时序 | **baostock** (`peTTM` + `pbMRQ`) | yfinance | baostock 自带日级 peTTM/pbMRQ，**消除"分位反推中位"陷阱**（CLAUDE.md 五项 sanity check 第 5 项） |
 | 港股 / 美股行情 | yfinance `0700.HK` / `BABA` | — | 腾讯/baostock 不覆盖境外 |
 | 卖方一致预期 | **AKShare `stock_research_report_em`** | — | **新增**，含未来 3 年 EPS/PE 预测 + PDF URL |

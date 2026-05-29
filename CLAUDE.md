@@ -11,6 +11,8 @@
 
 skill 位于 `skills/`，通过 `.claude/skills/` 符号链接引用，适时自动调用。新建 skill 默认创建在 `skills/` 并补充符号链接。
 
+> `skills/_shared/` 是跨 skill 共享层（`marketdata` 取数库含 A 股路由唯一来源 `codes.py` / `hooks` git+PostToolUse 钩子 / `eval` smoke 与单测），**非 skill 本身，不建符号链接**；取数与确定性校验逻辑统一放此，由各 skill 脚本 import。详见 [`docs/skill-refactor-plan.md`](docs/skill-refactor-plan.md)。
+
 ## 数据时效性（强约束）
 
 分析任何标的时**必须用最新可获取数据**：
