@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""PostToolUse hook：个股 wiki 区间术语白名单校验（warn-only）
+
+把 value-invest「区间术语规范」从写前自检（最易在叙事流中跳过）变成写后
+确定性校验。只管个股 wiki（wiki/stocks/<sector>/<name>.md）。
+
+退出码语义（Claude Code）：
+  0 = 通过；1 = 非阻断警告（stderr 提示用户、继续执行）；2 = 阻断。
+本 hook 现为 **warn-only（exit 1）**——grace 期只报不拦；确认零误报后改 exit 2。
+
+注册（settings.local.json PostToolUse, matcher Write|Edit|MultiEdit）：
+  python3 "$CLAUDE_PROJECT_DIR/skills/_shared/hooks/lint-interval-terms.py"
+"""
+
+import json
+import os
+import re
+import sys
+
+# 个股 wiki 中的非白名单档位（value-invest SKILL.md 区间术语规范）
+# 注：`深度买入区间` 暂不纳入——泡泡玛特.md 等存量页面有既成使用，与 SKILL.md
+#     "买入区间(已跌破 B×0.85)" 写法冲突，留待人工裁定后再决定是否纳入。
+BANNED = ["加仓区间", "高估区间", "低估区间"]
+
+
+def main():
+    try:
+        data = json.load(sys.stdin)
+    except Exception:
+        sys.exit(0)  # 拿不到输入不阻断
+
+    fp = (data.get("tool_input") or {}).get("file_path", "")
+    if not fp:
+        sys.exit(0)
+
+    # 仅个股页：wiki/stocks/<sector>/<name>.md（含 focus 软链，自动 follow）
+    # 排除 stocks 下一级的索引文件（如 价格区间总览.md）
+    if not re.search(r"wiki/stocks/[^/]+/[^/]+\.md$", fp):
+        sys.exit(0)
+    if fp.endswith("价格区间总览.md"):
+        sys.exit(0)
+    if not os.path.exists(fp):
+        sys.exit(0)
+
+    try:
+        text = open(fp, encoding="utf-8").read()
+    except Exception:
+        sys.exit(0)
+
+    hits = [(b, text.count(b)) for b in BANNED if b in text]
+    if hits:
+        detail = "；".join(f"{b}×{n}" for b, n in hits)
+        print(
+            f"⚠️ 区间术语 lint（warn-only）：{os.path.relpath(fp)} 含非白名单档位 {detail}\n"
+            f"   应映射到 6 档白名单：买入/关注/持有/谨慎/减仓/清仓区间"
+            f"（如 加仓区间→买入区间、高估区间→清仓区间）。见 value-invest SKILL.md「区间术语规范」。",
+            file=sys.stderr,
+        )
+        sys.exit(1)  # warn-only：非阻断
+
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

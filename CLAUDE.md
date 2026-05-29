@@ -34,6 +34,8 @@ skill 位于 `skills/`，通过 `.claude/skills/` 符号链接引用，适时自
 
 L2（事前）+ L3（事后）是两道独立防线，不可互替——主 agent 写入纪律完整 ≠ subagent 可省。完整细则见 [`docs/data-discipline.md`](docs/data-discipline.md)。
 
+> **Hook 地板（2026-05-29）**：可机械判定的纪律已下沉为 hook 强制——隐私边界走 git pre-commit、个股区间术语 + frontmatter 走 PostToolUse（warn-only）。**Hook 守确定性地板，L1/L2/L3 + verify 守判断天花板**（[观测] WebFetch 核对、计算链反推这类判断型不进 hook）。接线与清单见 [`skills/_shared/hooks/README.md`](skills/_shared/hooks/README.md)，全局蓝图见 [`docs/skill-refactor-plan.md`](docs/skill-refactor-plan.md)。
+
 ### 触发范围（适用 L1 / L2 / L3）
 
 所有 INGEST / QUERY 回写 / PERIODIC-REVIEW / VALUE-INVEST / LINT 中写入 wiki 的具体数字（市值/营收/PE/份额/利率/汇率/同业对标/历史对照等）。模糊场景默认触发。
