@@ -22,26 +22,17 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import quote_tencent
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "_shared"))
+from marketdata import quote_tencent, codes
 
 
 def _section(title: str):
     print(f'\n{"="*60}\n{title}\n{"="*60}')
 
 
-def is_a_share(code: str) -> bool:
-    """6 位纯数字 = A 股；带 .HK / .SS / .SZ 后缀视为非 A 股原生码"""
-    return code.isdigit() and len(code) == 6
-
-
-def get_yf_code(code: str) -> str:
-    """A股6位代码转yfinance格式；其它代码原样返回"""
-    if not is_a_share(code):
-        return code
-    if code.startswith(('6', '9')):
-        return f'{code}.SS'
-    return f'{code}.SZ'
+# 代码转换统一到 marketdata.codes（保留旧名为薄封装，调用点不变）
+is_a_share = codes.is_a_share
+get_yf_code = codes.to_yf_ticker
 
 
 def fetch_financial_summary(symbol: str):
@@ -132,11 +123,10 @@ def fetch_history_with_pe(code: str, years: int = 10):
         try:
             import baostock as bs
             bs.login()
-            prefix = 'sh' if code.startswith(('6', '9')) else 'sz'
             end = datetime.now().strftime('%Y-%m-%d')
             start = (datetime.now() - timedelta(days=years * 366)).strftime('%Y-%m-%d')
             rs = bs.query_history_k_data_plus(
-                f'{prefix}.{code}',
+                codes.to_baostock_code(code),
                 "date,open,high,low,close,volume,amount,turn,pctChg,peTTM,pbMRQ",
                 start_date=start, end_date=end,
                 frequency="d", adjustflag="2")  # 2=前复权

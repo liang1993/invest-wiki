@@ -22,35 +22,13 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.join(SCRIPT_DIR, "..", "..", "..")
 FOCUS_DIR = os.path.join(PROJECT_ROOT, "wiki", "stocks", "focus")
 
-# 复用 value-invest 的腾讯行情封装，避免重复实现
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "skills", "value-invest", "scripts"))
-import quote_tencent  # noqa: E402
+# 共享取数层：codes 代码转换 + 腾讯行情封装（替代旧的跨 skill sys.path reach-in）
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "skills", "_shared"))
+from marketdata import quote_tencent, codes  # noqa: E402
 
-
-def _code_to_yf_ticker(code: str) -> str:
-    """将文件中的股票代码转换为 yfinance ticker 格式。
-    - 600xxx.SH / 601xxx.SH → 600xxx.SS（上交所）
-    - 000xxx.SZ / 300xxx.SZ → 保持 .SZ（深交所）
-    - xxxx.HK → 保持 .HK（港股）
-    - 纯6位数字：6开头→.SS，0/3开头→.SZ
-    """
-    code = code.strip()
-    if ".SH" in code.upper():
-        return code.upper().replace(".SH", ".SS")
-    if ".HK" in code.upper():
-        # 港股标准化为4位：02097.HK → 2097.HK，0700.HK → 0700.HK
-        parts = code.upper().split(".")
-        return f"{str(int(parts[0])).zfill(4)}.HK"
-    if ".SZ" in code.upper() or ".SS" in code.upper():
-        return code.upper()
-    # 纯数字
-    digits = re.sub(r"[^0-9]", "", code)
-    if len(digits) == 6:
-        if digits[0] == "6":
-            return f"{digits}.SS"
-        else:
-            return f"{digits}.SZ"
-    return code
+# 代码转换统一到 marketdata.codes（保留旧名为薄封装，调用点不变）
+_code_to_yf_ticker = codes.to_yf_ticker
+_yf_ticker_to_a_code = codes.to_a_code
 
 
 def load_focus_list() -> dict:
@@ -85,13 +63,6 @@ def _extract_close(row):
     if hasattr(val, "iloc"):
         val = val.iloc[0]
     return val
-
-
-def _yf_ticker_to_a_code(ticker: str) -> str | None:
-    """yfinance 格式 (`600519.SS` / `000858.SZ`) → 6 位 A 股代码；非 A 股返回 None"""
-    if ticker.endswith((".SS", ".SZ")):
-        return ticker.split(".")[0]
-    return None
 
 
 def fetch_stocks():
