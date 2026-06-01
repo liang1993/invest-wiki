@@ -10,6 +10,8 @@
 
 输出：终端最后一行 `MEDIA_PATH=<absolute path>`，便于下游 skill 串联。
 """
+from __future__ import annotations  # 注解 lazy evaluated，兼容 Python 3.7+（macOS 自带 3.9 也能跑）
+
 import argparse
 import asyncio
 import datetime
