@@ -55,10 +55,21 @@ def to_yf_ticker(code: str) -> str:
 
 
 def to_tencent_symbol(code: str) -> str:
-    """6 位 A 股代码 → 腾讯 qt.gtimg.cn 符号（sh600519 / sz000858 / bj830799）。"""
+    """6 位 A 股代码 → 腾讯 qt.gtimg.cn 符号（sh600519 / sz000858 / bj830799）。
+    覆盖股票/ETF/基金码（_exchange 认全部首位），ETF 如 510300 → sh510300。"""
     code = code.strip()
     if not is_a_share(code):
         raise ValueError(f"腾讯行情仅支持 6 位 A 股代码: {code}")
+    return f"{_exchange(code)}{code}"
+
+
+def to_sina_symbol(code: str) -> str:
+    """6 位 A 股代码 → sina 符号（sh600519 / sz000858 / bj830799）。
+    与 to_tencent_symbol 同前缀规则，复用 _exchange，覆盖股票/ETF/基金码
+    （ETF 如 510300 → sh510300、159995 → sz159995）。"""
+    code = code.strip()
+    if not is_a_share(code):
+        raise ValueError(f"sina 行情仅支持 6 位 A 股代码: {code}")
     return f"{_exchange(code)}{code}"
 
 

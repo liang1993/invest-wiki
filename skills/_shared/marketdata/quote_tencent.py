@@ -6,7 +6,19 @@ A股实时行情快照，比 yfinance 快 ~22x，国内可达，字段更全。
 字段位置参考：腾讯协议 ~ 分隔，固定列序。
 """
 from __future__ import annotations
+import os
+import sys
+
 import requests
+
+# 作为 marketdata.quote_tencent 被 import 时 marketdata 已在路径上；直接
+# `python3 quote_tencent.py` 跑 __main__ 时父目录不在路径，补一下，保证两种入口
+# 都能 `from marketdata import codes`。
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# 别名 _codes 避免与 get_quotes(codes=...) 形参同名遮蔽。
+from marketdata import codes as _codes  # noqa: E402
 
 # 关键字段位置（从 0 起）
 FIELDS = {
@@ -44,14 +56,9 @@ NUMERIC_FIELDS = {
 
 
 def _market_prefix(code: str) -> str:
-    """6 位 A 股代码 → sh/sz 前缀"""
-    if code.startswith(('60', '68', '90')):
-        return 'sh'
-    if code.startswith(('00', '30', '20')):
-        return 'sz'
-    if code.startswith('8'):
-        return 'bj'
-    raise ValueError(f'未知 A 股代码前缀: {code}')
+    """6 位 A 股代码 → sh/sz/bj 前缀。路由收口到 codes._exchange（唯一来源），
+    因此覆盖股票码(60/00/30…)与 ETF/基金码(51/15/56/58…)——后者原实现不认。"""
+    return _codes._exchange(code.strip())
 
 
 def _parse_one(line: str) -> dict | None:
@@ -87,8 +94,7 @@ def get_quote(code: str, timeout: float = 5.0) -> dict | None:
 
     返回 None 表示获取失败。
     """
-    prefix = _market_prefix(code)
-    url = f'http://qt.gtimg.cn/q={prefix}{code}'
+    url = f'http://qt.gtimg.cn/q={_codes.to_tencent_symbol(code)}'
     try:
         resp = requests.get(url, timeout=timeout)
         resp.encoding = 'gbk'
@@ -105,7 +111,7 @@ def get_quotes(codes: list[str], timeout: float = 5.0) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for i in range(0, len(codes), 50):
         batch = codes[i:i + 50]
-        symbols = ','.join(f'{_market_prefix(c)}{c}' for c in batch)
+        symbols = ','.join(_codes.to_tencent_symbol(c) for c in batch)
         url = f'http://qt.gtimg.cn/q={symbols}'
         try:
             resp = requests.get(url, timeout=timeout)
@@ -121,13 +127,13 @@ def get_quotes(codes: list[str], timeout: float = 5.0) -> dict[str, dict]:
 
 if __name__ == '__main__':
     import json
-    import sys
-    codes = sys.argv[1:] or ['600519', '000858', '601318']
-    if len(codes) == 1:
-        result = get_quote(codes[0])
+    # 注意：不要用 `codes` 作局部名——会遮蔽模块级 import 的 codes 路由模块。
+    argv_codes = sys.argv[1:] or ['600519', '000858', '601318']
+    if len(argv_codes) == 1:
+        result = get_quote(argv_codes[0])
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        result = get_quotes(codes)
+        result = get_quotes(argv_codes)
         for code, q in result.items():
             print(f"{q['name']}({code}): {q['price']} | PE_TTM {q.get('pe_ttm')} | "
                   f"PB {q.get('pb')} | 总市值 {q.get('total_mcap_y')}亿")

@@ -10,3 +10,10 @@ scripts/xueqiu-fetch/node_modules/
 scripts/xueqiu-fetch/package-lock.json
 __pycache__/
 *.pyc
+
+# ETF momentum 回测数据缓存（6.3M，可由 build_panel.py / build_etf_panel.py 重新生成）
+skills/etf-momentum/research/data/
+skills/etf-momentum/research/data_etf/
+# 回测结果表(全精度浮点,可重跑生成;且长浮点会误触 pre-commit 卡号检测) + stray 日志
+skills/etf-momentum/research/*.csv
+skills/etf-momentum/research/*.log

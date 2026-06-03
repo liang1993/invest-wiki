@@ -51,6 +51,13 @@ CASES = [
     (codes.to_tencent_symbol, "688981", "sh688981"),
     (codes.to_tencent_symbol, "830799", "bj830799"),  # 北交所
 
+    # ── to_sina_symbol ──（与 to_tencent_symbol 同前缀规则，复用 _exchange）
+    (codes.to_sina_symbol, "600519", "sh600519"),
+    (codes.to_sina_symbol, "000858", "sz000858"),
+    (codes.to_sina_symbol, "510300", "sh510300"),     # 沪深300 ETF（沪，首位 5）
+    (codes.to_sina_symbol, "159995", "sz159995"),     # 芯片 ETF（深，首位 1）
+    (codes.to_sina_symbol, "830799", "bj830799"),     # 北交所
+
     # ── to_baostock_code ──（sh./sz.；bj 与非 A 股返回 None）
     (codes.to_baostock_code, "600519", "sh.600519"),
     (codes.to_baostock_code, "000858", "sz.000858"),
