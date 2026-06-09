@@ -39,13 +39,19 @@ if [ -n "$added_lines" ]; then
     found="${found}email address; "
   fi
 
+  # 规则 4/5 专用：先剔除 URL token（http(s)://… 直到空白）再检测。研报/财报
+  # 链接常含 18 位文档号（如 pdf.dfcfw.com/pdf/H301_AP202209301578810023_1.pdf），
+  # 会被身份证/银行卡的「连续 N 位数字」启发式误判。URL 内的数字非 PII，剔除即可；
+  # 真实 PII（前后为中文/空格/标点，不在 URL token 内）不受影响。
+  added_lines_nourl=$(echo "$added_lines" | sed -E 's#https?://[^[:space:]]+##g')
+
   # 4. 身份证号（18 位）
-  if echo "$added_lines" | grep -Eq '(^|[^0-9])[0-9]{17}[0-9Xx]([^0-9]|$)'; then
+  if echo "$added_lines_nourl" | grep -Eq '(^|[^0-9])[0-9]{17}[0-9Xx]([^0-9]|$)'; then
     found="${found}ID card number; "
   fi
 
   # 5. 银行卡号（16-19 位纯数字，排除常见误报）
-  if echo "$added_lines" | grep -Eq '([^0-9.]|^)[0-9]{16,19}([^0-9.]|$)'; then
+  if echo "$added_lines_nourl" | grep -Eq '([^0-9.]|^)[0-9]{16,19}([^0-9.]|$)'; then
     found="${found}possible bank card number; "
   fi
 
