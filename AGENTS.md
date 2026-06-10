@@ -15,6 +15,22 @@ skill 位于 `skills/`，通过 `.claude/skills/` 符号链接引用，适时自
 
 > `skills/_shared/` 是跨 skill 共享层（`marketdata` 取数库含 A 股路由唯一来源 `codes.py` / `hooks` git+PostToolUse 钩子 / `eval` smoke 与单测），**非 skill 本身，不建符号链接**；取数与确定性校验逻辑统一放此，由各 skill 脚本 import。详见 [`docs/skill-refactor-plan.md`](docs/skill-refactor-plan.md)。
 
+## 运行环境与工具映射
+
+本仓库工作流原文多以 Claude Code 工具名书写。**非 Claude Code harness 按下表把"抽象动作"映射到本环境实现**；最右「脚本 fallback」列对任何能跑 bash 的 harness/模型都可用，且也是 Claude Code 下原生工具失败（如 WebFetch 403）时的备选。
+
+| 抽象动作 | Claude Code | OpenCode | Hermes Agent | 脚本 fallback（全员可用） |
+|---|---|---|---|---|
+| 网页搜索 | WebSearch | search MCP | 内置 search | `python3 skills/_shared/webtools/search.py "<query>"` |
+| 原文抓取 | WebFetch | fetch MCP | 内置 fetch | `python3 skills/_shared/webtools/fetch.py <url>` |
+| PDF 逐页读 | Read pages=X | —（用 fallback） | —（用 fallback） | `python3 skills/_shared/webtools/pdf_text.py <pdf> --pages X` |
+| 零上下文校验（L3 / verify） | Agent 工具 spawn | task 工具或 fallback | subagent 或 fallback | `python3 skills/_shared/verify/run_verify.py …` |
+| 行情/宏观取数 | Bash + `_shared/marketdata` | 同左 | 同左 | 同左（已中立） |
+
+**解析规则**：
+1. 本仓库所有文档（AGENTS.md/CLAUDE.md、`docs/`、`skills/`、`templates/`）中出现的 `WebFetch` / `WebSearch` / `Agent 工具` / `Agent({...})` / `subagent_type=general-purpose` / `Read pages=` / `Read PDF pages=` 均指上表抽象动作；非 Claude Code 环境按本表解析，**纪律语义不变**（如"[观测] 必须 WebFetch 原 URL"= 必须用本环境的"原文抓取"动作取回原文核对，**禁止用搜索摘要替代**）。
+2. **原生优先**：本环境有原生实现时用原生（Claude Code 不要用 `fetch.py` 替代 WebFetch）；fallback 仅在原生不存在或失败时使用。
+
 ## 数据时效性（强约束）
 
 分析任何标的时**必须用最新可获取数据**：
@@ -131,7 +147,11 @@ L2 触发词表没覆盖的"表达层"问题：
 
 ### L3：数据校验 Agent（事后审计，强制）
 
-主 agent 完成 wiki 写入（阶段 C）后**必须立即** spawn `general-purpose` Agent 做事后校验。Prompt 模板见 [`docs/data-discipline.md`](docs/data-discipline.md#数据校验-agent-prompt-模板)。
+主 agent 完成 wiki 写入（阶段 C）后**必须立即**做零上下文事后校验。两条等价路径任选其一，**完成标准与失败处理一致（0✗0⚠️ → log 记录后方可 commit），不得以"本环境没有 subagent 工具"为由跳过 L3**：
+- **Claude Code**：spawn `general-purpose` Agent，**传 `model=sonnet`**（L3 为高频检索/比对型，用便宜快档即可；value-invest 校验 / arbiter 仲裁维持继承主力 Opus，**不降档**）
+- **非 Claude Code harness**：运行 verify-cli —— `python3 skills/_shared/verify/run_verify.py --template l3 --files <wiki…> --sections "<本次新增/修改章节>"`（见[运行环境与工具映射](#运行环境与工具映射)）
+
+Prompt 模板见 [`docs/data-discipline.md`](docs/data-discipline.md#数据校验-agent-prompt-模板)。
 
 **commit 前必跑**：任何 commit 操作前必须确认 L3 已跑且通过。用户主动要求 commit 但 L3 未跑 → 主 agent 先 spawn L3，校验通过后再 commit；不可"先 commit 等会儿补校验"。
 
@@ -228,10 +248,10 @@ wiki/
 
 1. 读 `raw/` 中文件或抓取 URL
 2. 提取关键信息（公司 / 行业 / 宏观 / 数据点）
-3. **【财报 PDF 专属】结构化摘要 + 审查** — 按 `templates/财报摘要模板.md` 抽取到 `raw/reports/<公司>_<报告期>.md`（每数据点标 PDF 页码 + 末尾生成核对清单），逐项 `Read pages=X` 回读校对，偏差必须修正摘要 md，审查通过后 frontmatter 设 `reviewed: true`。**禁止跳审直接回填 wiki**
+3. **【财报 PDF 专属】结构化摘要 + 审查** — 按 `templates/财报摘要模板.md` 抽取到 `raw/reports/<公司>_<报告期>.md`（每数据点标 PDF 页码 + 末尾生成核对清单），逐项 `Read pages=X`（非 Claude Code harness 用 `pdf_text.py --pages X`，见[运行环境与工具映射](#运行环境与工具映射)）回读校对，偏差必须修正摘要 md，审查通过后 frontmatter 设 `reviewed: true`。**禁止跳审直接回填 wiki**
 4. **走数据写入纪律 L1 → L2（强制，顺序执行）** — L1 轻量自检 → L2 阶段 A 数据声明清单 → 阶段 B 校验执行 → 阶段 C 写入 wiki。**L2 未完成不可进入 §5**。详见上文「[数据写入纪律](#数据写入纪律强制)」章节
 5. 维护辅助文件 — 交叉引用 / 更新 `index.md` / 更新 `log.md`
-6. **L3：立即 spawn 数据校验 Agent（强制）** — 阶段 C 完成后立即触发，commit 前必跑。见上文「[数据写入纪律 §L3](#l3数据校验-agent事后审计强制)」
+6. **L3：立即触发零上下文数据校验（强制）** — 阶段 C 完成后立即触发，commit 前必跑。Claude Code spawn `general-purpose` Agent（传 `model=sonnet`）；非 Claude Code harness 运行 verify-cli（`run_verify.py --template l3`）。见上文「[数据写入纪律 §L3](#l3数据校验-agent事后审计强制)」
 
 注意：
 - 不删除已有信息，追加或修正
