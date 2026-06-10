@@ -38,8 +38,9 @@ TODAY = datetime.date.today().isoformat()
 
 # 预算（完整继承现纪律）+ max-steps 总闸防失控
 BUDGETS = {
-    "l3": {"search": 10, "fetch": 6},            # data-discipline.md:124（search≤10）
-    "value-invest": {"search": 8, "fetch": 3},   # SKILL.md:233 / prompt-template.md:228
+    # 行号易漂移，按章节引用：
+    "l3": {"search": 10, "fetch": 6},            # data-discipline.md §数据校验 Agent prompt 模板（search≤10）
+    "value-invest": {"search": 8, "fetch": 3},   # prompt-template.md 校验6+7 共享 search≤8 + WebFetch≤3
     "arbiter": {"search": 6, "fetch": 5},         # 至少 2 独立来源，给足余量
 }
 MAX_STEPS = {"l3": 28, "value-invest": 34, "arbiter": 24}
