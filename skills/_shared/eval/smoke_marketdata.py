@@ -125,6 +125,10 @@ check("macro_china_shrzgm() [社融]", lambda: ak.macro_china_shrzgm(),
 check("macro_china_rmb() [汇率]", lambda: ak.macro_china_rmb(),
       lambda r: (True, ""), known_fail=True)
 
+# 注：另有"返陈旧数据"型接口（非抛异常，故不写成 check，否则会误报 ℹ️ 已恢复）——
+#     macro_china_pmi / macro_china_stock_market_cap 会返回 2008 陈旧数据，用前必须
+#     WebSearch/WebFetch 兜底核对最新值（见 docs/data-discipline.md §2「红线时间序列」）。
+
 print(f"\n{'='*50}")
 if n_fail == 0:
     print("smoke 通过：所有非 known-fail 接口正常")

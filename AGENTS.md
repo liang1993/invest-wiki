@@ -13,6 +13,30 @@
 
 skill 位于 `skills/`，通过 `.claude/skills/` 符号链接引用，适时自动调用。新建 skill 默认创建在 `skills/` 并补充符号链接。
 
+**skill 索引**（给不支持 skill 自动触发的 harness 当路由表；由 [`scripts/gen_skill_index.py`](scripts/gen_skill_index.py) 从各 `SKILL.md` frontmatter 生成，`bootstrap.sh` 刷新，**勿手改标记块内**）：
+
+<!-- skill-index:begin -->
+
+| skill | 触发场景（节选，完整见各 SKILL.md） |
+|---|---|
+| `a-share-market` | A股市场数据获取工具 |
+| `asr` | 本地中文 ASR 工具 |
+| `etf-momentum` | 行业 ETF 动量轮动计算器 |
+| `find-skills` | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a… |
+| `macro-analysis` | 宏观经济数据获取与分析工具 |
+| `macro-ellie` | 用"艾丽的无废话财经"的视角解读宏观经济数据与财经事件——把官方数据/政策/地缘博弈翻译成"这说明什么 + 对普通投资者意味着什么" |
+| `macro-quant-rebalance` | 专用于个人 A 股「宏观量化中性组合」的再平衡计算器——**不是通用再平衡器**，只服务这一套策略：静态大类 E40/B22/G21/C17 + 整组合波动率目标 12% + 权益用 etf-mome… |
+| `media-fetch` | 本地媒体下载工具，按 URL 自动分流 |
+| `periodic-review` | 定期投资复盘工具 |
+| `scheduled-ingest` | 定时数据采集任务集合 |
+| `stock-deep-dive` | 个股产品/经营深度分析工具 |
+| `value-invest-verify` | 价值投资 wiki 独立校验工具 |
+| `value-invest` | 个人价值投资分析工具 |
+| `wiki-review` | 单个 wiki 页面"格式对齐 + 过期归档"工具 |
+| `yahoo-finance` | Get stock prices, quotes, fundamentals, earnings, options, dividends, and analyst ratings using Yaho… |
+
+<!-- skill-index:end -->
+
 > `skills/_shared/` 是跨 skill 共享层（`marketdata` 取数库含 A 股路由唯一来源 `codes.py` / `hooks` git+PostToolUse 钩子 / `eval` smoke 与单测），**非 skill 本身，不建符号链接**；取数与确定性校验逻辑统一放此，由各 skill 脚本 import。详见 [`docs/skill-refactor-plan.md`](docs/skill-refactor-plan.md)。
 
 ## 运行环境与工具映射
@@ -271,3 +295,27 @@ wiki/
 ### Lint（维护）
 
 调用 `wiki-review` skill。
+
+## 多 Agent 混用协议（多 harness 共享同一仓库时）
+
+> 适用：多个 agent（不同 harness / 模型）分时或分角色操作同一仓库。所有 agent 共享的只有 git 与文件系统——故约定全部落 repo，纪律等价、产出可溯源。蓝图见 [`docs/multi-harness-plan.md`](docs/multi-harness-plan.md)。
+
+1. **开工自检**：会话开始若 `git status` 不干净，先向用户确认残留归属（可能是另一 agent 的未竟工作），**不得擅自 commit / revert / 续写他人未提交内容**。
+2. **产出归属**：每条 `wiki/log.md` 条目末尾加 `- **执行**：<harness>/<model>`（如 `claude-code/opus-4.8`、`opencode/deepseek-v4`、`hermes-agent/hermes-4-405b`）——数字错误可溯源到产出模型，跨模型质量对比有据。
+3. **并发边界**：默认**分时**（`wiki/log.md` 与 `index.md` 是追加热点，同工作区并发必冲突）。确需并行：各开 `git worktree` + 独立分支，由用户合并；禁止两 agent 共享同一工作区。**worktree 隐私盲区**：gitignore 的 `CLAUDE.local.md` 与 `private/` 不出现在新 worktree——worktree 内 agent 视为**未读隐私指令**，禁止撰写任何涉持仓 / 金额 / 个人财务内容，相关任务回主工作区分时执行。
+4. **纪律等价**：L1/L2/L3 的触发范围、豁免梯度、完成标准 harness 无关。L2 阶段 A 清单必须在该 agent 输出中可见；L3 用 Agent 工具或 verify-cli 二选一，标准同一。**模型弱不构成豁免理由**——弱模型环境更依赖 pre-commit 地板 + verify-cli 必跑。
+5. **能力分级分工**（建议默认）：判断型流程（value-invest 估值、ingest 财报解读、macro-ellie 解读）→ 强模型。**机械型 = 不写 `wiki/` 的任务**（行情 / 宏观取数、etf-momentum 快照、verify-cli 驱动、`raw/` 采集落盘）→ 任意通过冒烟的模型。**注意 scheduled-ingest 回写 wiki 静态章节段、wiki-review 改 wiki 正文均属写入类**，必须过冒烟 #2 才可跑（无"机械任务"名义的未校验写入旁路）。
+6. **状态共享走 repo**：教训、偏好、约定一律落 AGENTS.md / `docs/` / `log.md`，不留 harness 私有记忆（Claude auto-memory、Hermes 的 MEMORY.md / SOUL.md 体系）。任一 harness 的项目级记忆文件若生成在仓库内，加入 `.gitignore`，防单 harness 私有状态混入共享事实源。
+7. **破坏性操作基线**：`git push` / 改写历史 / 批量删除，任何 harness 默认须用户确认；**任何 agent 禁止 `git commit --no-verify`（pre-commit 旁路），仅限用户人工执行**——pre-commit 是混用下唯一对所有 agent 生效的强制点，堵不住 `--no-verify` 这条对弱遵循模型就不成立。
+
+## 工程改动工作流（代码 / 架构 / skill 重构，非 wiki 内容）
+
+> 与上文「[工作流](#工作流)」（wiki ingest / query / lint）区分：本节针对仓库**工程改动**（脚本、hook、skill 结构、兼容方案这类）。
+
+重大重构 / 多步改动走**双门 review**：
+1. 出方案落 `docs/` → **门 1**：spawn 独立 subagent 对抗式 review **方案** → 按 review 修订；
+2. 逐 **phase 独立 commit**（每步带验证检查），在 **feature 分支**推进；
+3. **门 2**：合并前 spawn 独立 subagent review 整个 **diff（`main..HEAD`）** → 修；
+4. 仅在用户明确说"合"时 `merge` + `push`。
+
+**不盲信 subagent**：review report 要自己 `fetch` / `grep` / 跑测试核对（subagent 会误判，如把某 skill 专属纪律误读成重复拷贝）。指令托底的自检会在叙事流里被跳过，独立 zero-context subagent 是结构性补丁。
