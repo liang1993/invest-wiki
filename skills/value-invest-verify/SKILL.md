@@ -65,6 +65,8 @@ Agent({
 })
 ```
 
+> **非 Claude Code 环境**：用 verify-cli 替代 Agent 工具 —— `python3 skills/_shared/verify/run_verify.py --template value-invest --file <个股wiki>`（渲染同一份 `prompt-template.md`，工具名映射见 [AGENTS.md §运行环境与工具映射](../../AGENTS.md#运行环境与工具映射)）。
+
 **prompt 必须包含**：
 - 任务定义（独立校验，不做估值修订）
 - wiki 文件路径
@@ -117,7 +119,7 @@ subagent 返回一份**三档分级清单**：
 - 分歧涉及估值核心假设（合理 PB、长期 ROE、NIM 中枢、安全边际比例）
 - subagent 引用的数据源被主 agent 怀疑不可信
 
-**实现**：用 Agent 工具调起**第三个 general-purpose subagent**（仲裁员 / arbiter），prompt 用 [`arbiter-prompt.md`](arbiter-prompt.md) 模板。
+**实现**：用 Agent 工具调起**第三个 general-purpose subagent**（仲裁员 / arbiter），prompt 用 [`arbiter-prompt.md`](arbiter-prompt.md) 模板。**非 Claude Code 环境**：`python3 skills/_shared/verify/run_verify.py --template arbiter --diff <分歧描述文件>`（arbiter 模式机械排除读取 `wiki/**`，把 `arbiter-prompt.md` "严禁读 wiki" 的盲化从指令级升为代码级）。
 
 **关键设计**：仲裁员 prompt **不透露**哪个是主 agent 版本、哪个是 subagent 版本，只给两个版本的差异描述 + 独立去查原始数据。
 
