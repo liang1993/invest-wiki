@@ -6,6 +6,9 @@
 
 退出码：0 通过 / 1 非阻断警告 / 2 阻断。现为 warn-only（exit 1）。
 
+双入口：无 argv → 读 stdin JSON（PostToolUse）；有 argv → 每个 argv 当 wiki 文件路径
+校验（pre-commit 调用，commit 时兜底）。共用一份逻辑，warn-only 语义一致。
+
 注册：python3 "$CLAUDE_PROJECT_DIR/skills/_shared/hooks/lint-frontmatter.py"
 """
 
@@ -18,24 +21,18 @@ import sys
 SKIP_BASENAMES = {"log.md", "index.md"}
 
 
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except Exception:
-        sys.exit(0)
-
-    fp = (data.get("tool_input") or {}).get("file_path", "")
+def lint_file(fp):
+    """校验单个 wiki 文件 frontmatter，返回告警字符串（None = 无问题 / 不适用）。"""
     if not fp or not re.search(r"wiki/.+\.md$", fp):
-        sys.exit(0)
+        return None
     if os.path.basename(fp) in SKIP_BASENAMES:
-        sys.exit(0)
+        return None
     if not os.path.exists(fp):
-        sys.exit(0)
-
+        return None
     try:
         text = open(fp, encoding="utf-8").read()
     except Exception:
-        sys.exit(0)
+        return None
 
     missing = []
     if not text.startswith("---"):
@@ -50,14 +47,30 @@ def main():
             missing.append("updated")
 
     if missing:
-        print(
-            f"⚠️ frontmatter lint（warn-only）：{os.path.relpath(fp)} 缺 {', '.join(missing)}"
-            f"（模板要求 tags + updated，见 CLAUDE.md「页面模板」）。",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        return (f"⚠️ frontmatter lint（warn-only）：{os.path.relpath(fp)} 缺 {', '.join(missing)}"
+                f"（模板要求 tags + updated，见 CLAUDE.md「页面模板」）。")
+    return None
 
-    sys.exit(0)
+
+def main():
+    # argv 模式（pre-commit）：逐个 argv 当文件；无 argv 走 stdin JSON（PostToolUse）
+    if len(sys.argv) > 1:
+        files = sys.argv[1:]
+    else:
+        try:
+            data = json.load(sys.stdin)
+        except Exception:
+            sys.exit(0)
+        fp = (data.get("tool_input") or {}).get("file_path", "")
+        files = [fp] if fp else []
+
+    warned = False
+    for fp in files:
+        msg = lint_file(fp)
+        if msg:
+            print(msg, file=sys.stderr)
+            warned = True
+    sys.exit(1 if warned else 0)
 
 
 if __name__ == "__main__":

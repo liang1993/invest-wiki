@@ -74,10 +74,23 @@ for f in $staged_wiki; do
   fi
 done
 
+# ── C. wiki lint 双栈（warn-only）：写后 PostToolUse hook 的 commit 时兜底 ────────
+# 非 Claude Code harness 无 PostToolUse；这里对 staged wiki md 跑同两个 lint 的 argv
+# 模式补地板。warn-only：lint 打 stderr 但 `|| true` 保证不改本 hook exit 码（不阻断
+# 提交）。实现注：argv 模式扫的是工作区文件而非 staged 内容，warn-only 下可接受；
+# 将来升 block 时再换 `git show :path` 取 staged 内容，并与 PostToolUse 版同步升级。
+hook_dir="$(dirname "$0")"
+for f in $staged_wiki; do
+  [ -f "$f" ] || continue
+  python3 "$hook_dir/lint-interval-terms.py" "$f" || true
+  python3 "$hook_dir/lint-frontmatter.py" "$f" || true
+done
+
 # ── 裁决 ─────────────────────────────────────────────────────────
 if [ -n "$found" ]; then
   echo "✗ pre-commit 拦截：检测到敏感/越界内容 — ${found%%; }" >&2
-  echo "  如确为误报，可 git commit --no-verify 跳过（请谨慎）。" >&2
+  echo "  ⚠️ 若确为误报：请停下，把以上拦截输出原样转给用户，由用户人工决定是否 --no-verify；" >&2
+  echo "     agent 一律禁止自行 git commit --no-verify（隐私真阳场景不可接受，见 AGENTS.md 混用协议 7）。" >&2
   exit 1
 fi
 
