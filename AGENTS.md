@@ -30,6 +30,7 @@ skill 位于 `skills/`，通过 `.claude/skills/` 符号链接引用，适时自
 | `periodic-review` | 定期投资复盘工具 |
 | `scheduled-ingest` | 定时数据采集任务集合 |
 | `stock-deep-dive` | 个股产品/经营深度分析工具 |
+| `stock-kuaidao` | 用抖音"快刀斩股"的视角做个股财报体检与估值——把一家 A 股公司用招牌"斩股十刀"从营收砍到估值，大白话拆术语、现场手算、武侠刀法叙事，给散户一个"这公司牛不牛、贵不贵"的痛快判断 |
 | `value-invest-verify` | 价值投资 wiki 独立校验工具 |
 | `value-invest` | 个人价值投资分析工具 |
 | `wiki-review` | 单个 wiki 页面"格式对齐 + 过期归档"工具 |
