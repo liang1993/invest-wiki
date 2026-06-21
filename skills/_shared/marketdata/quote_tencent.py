@@ -125,6 +125,48 @@ def get_quotes(codes: list[str], timeout: float = 5.0) -> dict[str, dict]:
     return out
 
 
+# 港股端点（hk 前缀）腾讯校验来源，需带 UA + Referer；A 股端点无此要求，故仅港股用。
+_HK_HEADERS = {
+    'User-Agent': 'Mozilla/5.0',
+    'Referer': 'https://gu.qq.com/',
+}
+
+
+def get_hk_quotes(codes: list[str], timeout: float = 5.0) -> dict[str, dict]:
+    """批量港股实时快照（绕开 yfinance 延迟，给当日价 + 涨跌幅）。
+
+    codes 为港股代码（'0700.HK' / '00700.HK' / '3690.HK' / '02097.HK'）。
+    返回 {输入代码: quote_dict}，失败的代码不在结果中。港股关键字段位与 A 股一致
+    （price[3] / prev_close[4] / time[30] / change[31] / change_pct[32]），故复用
+    _parse_one；高位字段（PE / 市值等）港股口径不同，本封装仅保证价 / 涨跌幅口径。
+    """
+    out: dict[str, dict] = {}
+    # 腾讯符号 → 输入代码：parsed['code'] 是 5 位零填充（00700），非调用方原形态，
+    # 故按行首 v_hk00700= 的符号回填到调用方传入的 key。
+    sym_to_input = {_codes.to_tencent_hk_symbol(c): c for c in codes}
+    symbols = list(sym_to_input)
+    for i in range(0, len(symbols), 50):
+        batch = symbols[i:i + 50]
+        url = f'http://qt.gtimg.cn/q={",".join(batch)}'
+        try:
+            resp = requests.get(url, headers=_HK_HEADERS, timeout=timeout)
+            resp.encoding = 'gbk'
+        except Exception:
+            continue
+        for line in resp.text.strip().split('\n'):
+            line = line.strip()
+            if '=' not in line:
+                continue
+            sym = line.split('=', 1)[0].strip()
+            if sym.startswith('v_'):
+                sym = sym[2:]
+            key = sym_to_input.get(sym)
+            parsed = _parse_one(line)
+            if key and parsed:
+                out[key] = parsed
+    return out
+
+
 if __name__ == '__main__':
     import json
     # 注意：不要用 `codes` 作局部名——会遮蔽模块级 import 的 codes 路由模块。

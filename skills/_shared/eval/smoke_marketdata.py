@@ -23,9 +23,11 @@ from contextlib import contextmanager, redirect_stdout
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 sys.path.insert(0, os.path.join(REPO, "skills", "value-invest", "scripts"))
+sys.path.insert(0, os.path.join(REPO, "skills", "_shared"))
 
 import fetch_data as fd  # noqa: E402  （封装层：财报/行情/PE 时序/同业）
 import akshare as ak     # noqa: E402  （裸调用：市场层 + 宏观）
+from marketdata import quote_tencent  # noqa: E402  （港股实时行情封装）
 
 n_fail = 0
 
@@ -106,6 +108,14 @@ check("fetch_research_consensus(600519)", lambda: fd.fetch_research_consensus("6
 
 check("fetch_peers([000858])", lambda: fd.fetch_peers(["000858"]),
       lambda r: (True, "运行无异常"))  # 仅 print 无返回值，验"可跑"
+
+# 港股实时行情回归：guard against yfinance 延迟回潮——必须给 price + change_pct
+check("get_hk_quotes([0700.HK]) [港股实时]",
+      lambda: quote_tencent.get_hk_quotes(["0700.HK"]),
+      lambda r: (r.get("0700.HK", {}).get("price") is not None
+                 and isinstance(r.get("0700.HK", {}).get("change_pct"), (int, float)),
+                 f"price={r.get('0700.HK', {}).get('price')} "
+                 f"chg%={r.get('0700.HK', {}).get('change_pct')}"))
 
 # ── B. 裸 akshare 调用（市场层 + 宏观）+ known-fail ──────────────────────
 print("── B. 裸 akshare（market / macro）──")

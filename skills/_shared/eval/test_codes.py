@@ -26,6 +26,14 @@ CASES = [
     (codes.is_a_share, "AAPL", False),
     (codes.is_a_share, " 600519 ", True),   # strip
 
+    # ── is_hk_share ──（带 .HK 后缀 = 港股）
+    (codes.is_hk_share, "0700.HK", True),
+    (codes.is_hk_share, "02097.HK", True),
+    (codes.is_hk_share, "3690.hk", True),    # 大小写不敏感
+    (codes.is_hk_share, "600519", False),
+    (codes.is_hk_share, "600036.SS", False),
+    (codes.is_hk_share, "AAPL", False),
+
     # ── to_yf_ticker ──（裁决表 4 条规则）
     (codes.to_yf_ticker, "600519", "600519.SS"),    # 茅台 沪 A
     (codes.to_yf_ticker, "000858", "000858.SZ"),    # 五粮液 深 A
@@ -50,6 +58,15 @@ CASES = [
     (codes.to_tencent_symbol, "300750", "sz300750"),
     (codes.to_tencent_symbol, "688981", "sh688981"),
     (codes.to_tencent_symbol, "830799", "bj830799"),  # 北交所
+
+    # ── to_tencent_hk_symbol ──（hk 前缀 + 5 位零填充，接受 .HK 后缀或纯数字）
+    (codes.to_tencent_hk_symbol, "0700.HK", "hk00700"),   # 腾讯 4 位写法
+    (codes.to_tencent_hk_symbol, "00700.HK", "hk00700"),  # 腾讯 5 位写法
+    (codes.to_tencent_hk_symbol, "3690.HK", "hk03690"),   # 美团
+    (codes.to_tencent_hk_symbol, "02097.HK", "hk02097"),  # 蜜雪
+    (codes.to_tencent_hk_symbol, "9988.HK", "hk09988"),   # 阿里
+    (codes.to_tencent_hk_symbol, "9863.HK", "hk09863"),   # 零跑
+    (codes.to_tencent_hk_symbol, "700", "hk00700"),       # 纯数字
 
     # ── to_sina_symbol ──（与 to_tencent_symbol 同前缀规则，复用 _exchange）
     (codes.to_sina_symbol, "600519", "sh600519"),

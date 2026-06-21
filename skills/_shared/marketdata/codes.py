@@ -23,6 +23,11 @@ def is_a_share(code: str) -> bool:
     return c.isdigit() and len(c) == 6
 
 
+def is_hk_share(code: str) -> bool:
+    """带 .HK 后缀 = 港股（与 is_a_share 对称的路由判定）。"""
+    return code.strip().upper().endswith(".HK")
+
+
 def _exchange(c6: str) -> str:
     """6 位 A 股市场代码 → 'sh' / 'sz' / 'bj'。按首位覆盖股票/ETF/基金/债，**永不抛错**
     —— is_a_share 认任意 6 位数字，此处必须覆盖全部首位，否则 ETF(510300)/债券码会
@@ -61,6 +66,17 @@ def to_tencent_symbol(code: str) -> str:
     if not is_a_share(code):
         raise ValueError(f"腾讯行情仅支持 6 位 A 股代码: {code}")
     return f"{_exchange(code)}{code}"
+
+
+def to_tencent_hk_symbol(code: str) -> str:
+    """港股代码 → 腾讯 qt.gtimg.cn 符号（0700.HK / 00700.HK / 3690.HK → hk00700 / hk03690）。
+    腾讯港股用 `hk` 前缀 + 5 位零填充；接受带 .HK 后缀或纯数字。"""
+    c = code.strip().upper()
+    if c.endswith(".HK"):
+        c = c[:-3]
+    if not c.isdigit():
+        raise ValueError(f"腾讯港股行情需要数字港股代码: {code}")
+    return f"hk{int(c):05d}"
 
 
 def to_sina_symbol(code: str) -> str:

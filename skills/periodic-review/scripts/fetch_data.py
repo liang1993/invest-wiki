@@ -4,7 +4,7 @@
 用法：python3 fetch_data.py [--stocks] [--forex] [--all]
 
 模块：
-  --stocks   关注个股当前价（A 股走腾讯批量、港股走 yfinance）
+  --stocks   关注个股当前价（A 股 + 港股走腾讯实时含当日涨跌幅，其它走 yfinance）
   --forex    人民币汇率（yfinance）
   --all      以上全部（默认）
 
@@ -65,8 +65,18 @@ def _extract_close(row):
     return val
 
 
+def _print_tencent_quote(name, label, q):
+    """统一打印腾讯快照：当前价 + 当日涨跌幅（A 股与港股同格式）。"""
+    if q and q.get("price") is not None:
+        pct = q.get("change_pct")
+        pct_str = f"  {pct:+.2f}%" if isinstance(pct, (int, float)) else ""
+        print(f"  {name} ({label}): {q['price']:.2f}{pct_str}")
+    else:
+        print(f"  {name} ({label}): 腾讯无返回")
+
+
 def fetch_stocks():
-    """获取关注个股最新收盘价：A 股走腾讯批量，港股走 yfinance"""
+    """获取关注个股当前价：A 股 + 港股走腾讯实时（含当日涨跌幅），其它走 yfinance"""
     watchlist = load_focus_list()
     if not watchlist:
         print("  wiki/stocks/focus/ 目录为空或不存在，无关注个股")
@@ -76,27 +86,33 @@ def fetch_stocks():
     print(f"关注个股当前价（共 {len(watchlist)} 只）")
     print("=" * 60)
 
-    a_share, others = {}, {}
+    # 双重上市取第一个代码（在 load_focus_list 完成）：A 主上市 → a_share，
+    # 港股主上市（美团/腾讯等 .HK）→ hk，两者均走腾讯实时；美股等其它走 yfinance。
+    a_share, hk, others = {}, {}, {}
     for name, ticker in watchlist.items():
         code = _yf_ticker_to_a_code(ticker)
-        (a_share if code else others)[name] = code or ticker
+        if code:
+            a_share[name] = code
+        elif codes.is_hk_share(ticker):
+            hk[name] = ticker
+        else:
+            others[name] = ticker
 
     if a_share:
         quotes = quote_tencent.get_quotes(list(a_share.values()))
         for name, code in a_share.items():
-            q = quotes.get(code)
-            if q and q.get("price") is not None:
-                pct = q.get("change_pct")
-                pct_str = f"  {pct:+.2f}%" if isinstance(pct, (int, float)) else ""
-                print(f"  {name} ({code}): {q['price']:.2f}{pct_str}")
-            else:
-                print(f"  {name} ({code}): 腾讯无返回")
+            _print_tencent_quote(name, code, quotes.get(code))
+
+    if hk:
+        quotes = quote_tencent.get_hk_quotes(list(hk.values()))
+        for name, ticker in hk.items():
+            _print_tencent_quote(name, ticker, quotes.get(ticker))
 
     if others:
         try:
             import yfinance as yf
         except ImportError:
-            print("  错误: 港股行情需要 yfinance — pip install yfinance")
+            print("  错误: 非 A 股 / 港股行情需要 yfinance — pip install yfinance")
             return
         tickers = list(others.values())
         # 单只返回扁平列；多只返回 MultiIndex (字段, 代码)
