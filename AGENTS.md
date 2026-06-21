@@ -21,8 +21,10 @@ skill 位于 `skills/`，通过 `.claude/skills/` 符号链接引用，适时自
 |---|---|
 | `a-share-market` | A股市场数据获取工具 |
 | `asr` | 本地中文 ASR 工具 |
+| `douyin-distill` | 把一个抖音博主蒸馏成可复用的"人设 skill"——给定博主主页 URL，自动跑通【扫码登录→旁路枚举全部作品→识别会员/付费视频→选样下载→批量转写→读稿蒸馏成 skill→独立校验】整条流水线，产… |
 | `etf-momentum` | 行业 ETF 动量轮动计算器 |
 | `find-skills` | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a… |
+| `invest-tusi` | 用抖音"土斯土耶夫斯基"（老司机日记 / 中国好公司）的视角做价值投资解读——把一家公司或一段宏观周期，用他那套"学院派、长线、看资产、定周期"的框架讲成散户能用的判断 |
 | `macro-analysis` | 宏观经济数据获取与分析工具 |
 | `macro-ellie` | 用"艾丽的无废话财经"的视角解读宏观经济数据与财经事件——把官方数据/政策/地缘博弈翻译成"这说明什么 + 对普通投资者意味着什么" |
 | `macro-quant-rebalance` | 专用于个人 A 股「宏观量化中性组合」的再平衡计算器——**不是通用再平衡器**，只服务这一套策略：静态大类 E40/B22/G21/C17 + 整组合波动率目标 12% + 权益用 etf-mome… |

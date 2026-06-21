@@ -18,3 +18,6 @@ skills/etf-momentum/research/data_macro/
 # 回测结果表(全精度浮点,可重跑生成;且长浮点会误触 pre-commit 卡号检测) + stray 日志
 skills/etf-momentum/research/*.csv
 skills/etf-momentum/research/*.log
+
+# 一次性市场扫描 scratch（不入库）
+.c2_*
