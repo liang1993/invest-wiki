@@ -16,6 +16,10 @@ import sys
 import tempfile
 from pathlib import Path
 
+# 解释器自愈：bare `python3` 可能是缺 funasr/torch 的 Xcode python；自动重入装了依赖的解释器。
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "_shared"))
+from interp import ensure_interpreter  # noqa: E402
+
 DEFAULT_TARGET = Path.home() / "Downloads/asr-output"
 DATE_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}_")
 
@@ -59,7 +63,13 @@ def check_deps():
         pip_missing = [m for m in missing if m != "ffmpeg"]
         if pip_missing:
             print(
-                f"  pip3 install --break-system-packages {' '.join(pip_missing)} torchaudio pyyaml",
+                f"  /opt/homebrew/bin/python3 -m pip install --break-system-packages "
+                f"{' '.join(pip_missing)} torchaudio pyyaml",
+                file=sys.stderr,
+            )
+            print(
+                "  （依赖须装进运行脚本的那个解释器；脚本会自动切到装了依赖的 python，"
+                "仍失败可设 INVEST_WIKI_PY=/path/to/python3）",
                 file=sys.stderr,
             )
         sys.exit(1)
@@ -137,6 +147,8 @@ def render(src: Path, clean_text: str) -> str:
 
 def main():
     args = parse_args()
+    # 缺 funasr/torch 时切到装了依赖的解释器重跑（见 _shared/interp）；--help/错参在此前已退出
+    ensure_interpreter(["funasr", "torch"])
     check_deps()
 
     src = Path(args.file).resolve()
