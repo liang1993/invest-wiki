@@ -112,7 +112,7 @@ def series_of(desc: str) -> str:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("url")
-    ap.add_argument("--workdir", default=str(Path.home() / "Downloads/douyin-distill/_inbox"))
+    ap.add_argument("--workdir", default=str(Path.home() / "liang/douyin-distill/_inbox"))
     ap.add_argument("--focus", default="", help="逗号分隔的关注词，扫描标题命中（如 茅台,腾讯,平安）")
     a = ap.parse_args()
     wd = Path(a.workdir); wd.mkdir(parents=True, exist_ok=True)

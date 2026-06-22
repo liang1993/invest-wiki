@@ -19,11 +19,11 @@ pip3 install --break-system-packages playwright funasr torch torchaudio pyyaml
 python3.14 -m playwright install chromium        # 有头浏览器（登录+枚举需要）
 brew install ffmpeg
 ```
-> 运行用 **python3.14**（playwright + funasr 装在此环境；系统 python3=3.9 没有）。脚本默认工作区 `~/Downloads/douyin-distill/<slug>/`，**语料（媒体/逐字稿/登录态）一律不入 repo**，只有蒸馏产出的 skill 进 git。
+> 运行用 **python3.14**（playwright + funasr 装在此环境；系统 python3=3.9 没有）。脚本默认工作区 `~/liang/douyin-distill/<slug>/`（与 repo 同级、**不入任何 git**，不要放 ~/Downloads），**语料（媒体/逐字稿/登录态）一律不入 repo**，只有蒸馏产出的 skill 进 git。
 
 ## 流水线（7 步）
 
-设 `URL=博主主页`，`WD=~/Downloads/douyin-distill/<slug>`（slug 自取，如 tusi）。
+设 `URL=博主主页`，`WD=~/liang/douyin-distill/<slug>`（slug 自取，如 tusi）。
 
 ### 1. 扫码登录（人工一步）
 抖音主页对未登录态返回空 body——**必须登录**。脚本开有头浏览器，用户用抖音 App 扫码：
@@ -73,7 +73,7 @@ python3.14 skills/douyin-distill/scripts/transcribe.py --workdir "$WD"     # 模
 
 ## 边界与隐私
 
-- **语料不入 repo**：`$WD`（媒体/逐字稿/userdata）留本地 `~/Downloads`，只 commit `skills/<persona>/`。
+- **语料不入 repo**：`$WD`（媒体/逐字稿/userdata）留本地 `~/liang/douyin-distill/`（与 repo 同级、非 git），只 commit `skills/<persona>/`。
 - **登录态清理**：蒸馏完 `rm -rf "$WD/userdata"`（含用户抖音会话）；不需要的媒体也可删。
 - **忠实优先**：声纹频次必须 grep 实测、框架/信条/案例必须有逐字稿原文支撑；第 7 步校验不可省。
 - 产出的人设 skill 是**解读/风格层**，须在其 SKILL.md 里写清"数字仍走取数 skill 核实、不预测点位、不荐股"。

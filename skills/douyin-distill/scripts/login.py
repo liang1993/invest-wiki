@@ -57,6 +57,6 @@ async def main(url: str, workdir: Path):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("url", help="抖音用户主页 URL (www.douyin.com/user/...)")
-    ap.add_argument("--workdir", default=str(Path.home() / "Downloads/douyin-distill/_inbox"))
+    ap.add_argument("--workdir", default=str(Path.home() / "liang/douyin-distill/_inbox"))
     a = ap.parse_args()
     asyncio.run(main(a.url, Path(a.workdir)))
