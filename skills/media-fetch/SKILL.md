@@ -32,11 +32,14 @@ skills/media-fetch/
 
 ```bash
 brew install ffmpeg                                    # 抖音长视频 DASH 合并必需
-pip3 install --break-system-packages playwright
-python3 -m playwright install chromium
+# playwright 须装进 *运行脚本的那个* 解释器；bare python3 常是缺它的 Xcode 3.9.6
+/opt/homebrew/bin/python3 -m pip install --break-system-packages playwright
+/opt/homebrew/bin/python3 -m playwright install chromium
 ```
 
-> Apple Podcasts 路径**不需要 Playwright / ffmpeg**——iTunes API 公开 + HTTP 直下，纯标准库。但 fetch.py 启动时仍会 import playwright 检查；如果只用 podcast 不用抖音，可以略过 chromium 下载。ffmpeg 仅在抖音命中 DASH 分流时才被调用。
+> playwright 装在 Homebrew Python `/opt/homebrew/bin/python3`(3.14)。`fetch.py` 命中 Douyin 时若当前解释器缺 playwright 会**自动重入**装了依赖的解释器（见 `skills/_shared/interp`），故 `python3 fetch.py ...` 开箱即用；自动找不到时设 `INVEST_WIKI_PY=/path/to/python3` 覆盖。
+>
+> Apple Podcasts 路径**不需要 Playwright / ffmpeg**——iTunes API 公开 + HTTP 直下，纯标准库，任意解释器（含 Xcode python）可跑、**不触发重入**。playwright 仅在命中 Douyin 时才检查/导入；ffmpeg 仅在抖音命中 DASH 分流时才被调用。
 
 > 历史：2026-05 之前 douyin 用 `douyin-tiktok-scraper`，因抖音 API 签名/msToken 失效而废弃；改用 Playwright 让抖音页面自然加载并签出 cookies，再监听网络请求拿无水印 mp4 URL。
 
@@ -99,7 +102,7 @@ Douyin 特有：
 | ffmpeg 提示 `Output file does not contain any stream` 在下游 asr 中 | DASH 视频流被识别但音频流没识别成功，合并未触发 → 输出文件无音轨 | 检查 `info.json` 里 `audio_media_url` 是否为 `null`；若是，看 `candidates` 列表里是否有 `media-audio-*` URL 没被分类——可能是抖音又改了 URL 模式 |
 | `ffmpeg 合并失败` | ffmpeg 不在 PATH / 音视频 codec 不兼容 `-c copy` | 确认 `brew install ffmpeg`；codec 问题改成 `-c:v copy -c:a aac` 重编音轨 |
 | `下载失败 403` | 防盗链 / mp4 URL 过期（CDN signed URL 通常分钟级有效） | 立即重试；超过几分钟需重新拉一次 |
-| `ModuleNotFoundError: playwright` | playwright 未安装 | `pip3 install --break-system-packages playwright` |
+| `ERROR: 缺少依赖 playwright` | playwright 没装进可被自动发现的解释器 | `/opt/homebrew/bin/python3 -m pip install --break-system-packages playwright`；或设 `INVEST_WIKI_PY=/path/to/python3` |
 | `Executable doesn't exist` | 装了 playwright 包但没装 chromium | `python3 -m playwright install chromium` |
 
 Apple Podcasts 特有：

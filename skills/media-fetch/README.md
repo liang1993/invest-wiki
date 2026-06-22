@@ -1,20 +1,23 @@
 # media-fetch — 一次性安装说明
 
-## Python 依赖
+## Python 依赖（仅 Douyin 路径需要）
 
 ```bash
-pip3 install --break-system-packages playwright
-python3 -m playwright install chromium
+# playwright 须装进 *运行脚本的那个* 解释器；bare python3 常是缺它的 Xcode 3.9.6
+/opt/homebrew/bin/python3 -m pip install --break-system-packages playwright
+/opt/homebrew/bin/python3 -m playwright install chromium
 ```
 
-> 用户机器为 Homebrew Python（PEP 668 保护），所以需要 `--break-system-packages`。这是 invest-wiki 仓库其他 skill（akshare/yfinance/funasr）的既有约定。
+> playwright 装在 Homebrew Python `/opt/homebrew/bin/python3`(3.14)。`fetch.py` 命中 Douyin 时若当前解释器缺 playwright 会**自动重入**装了依赖的解释器（见 `skills/_shared/interp`），故 `python3 fetch.py ...` 开箱即用；自动找不到时设 `INVEST_WIKI_PY=/path/to/python3`。**Apple Podcasts 路径纯标准库**，任意解释器（含 Xcode python）可跑、不触发重入。
+>
+> 用 `--break-system-packages` 是因 Homebrew Python 的 PEP 668 保护——invest-wiki 其他 skill（akshare/yfinance/funasr）的既有约定。
 
 第二行下载 Chromium 浏览器到 `~/Library/Caches/ms-playwright/`，约 150MB，仅首次需要。
 
 ## 验证
 
 ```bash
-python3 -c "from playwright.async_api import async_playwright; print('OK')"
+/opt/homebrew/bin/python3 -c "from playwright.async_api import async_playwright; print('OK')"
 ls ~/Library/Caches/ms-playwright/ | grep chromium
 ```
 

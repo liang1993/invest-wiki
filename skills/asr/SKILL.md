@@ -26,8 +26,11 @@ skills/asr/
 
 ```bash
 brew install ffmpeg                                                  # 抽音必需
-pip3 install --break-system-packages funasr torch torchaudio pyyaml  # ASR runtime + 渲染
+# funasr/torch 须装进 *运行脚本的那个* 解释器；bare python3 常是缺依赖的 Xcode 3.9.6
+/opt/homebrew/bin/python3 -m pip install --break-system-packages funasr torch torchaudio pyyaml
 ```
+
+> 依赖装在 Homebrew Python `/opt/homebrew/bin/python3`(3.14)。`transcribe.py` 启动时若当前解释器缺 funasr/torch 会**自动重入**装了依赖的解释器（见 `skills/_shared/interp`），故文档里的 `python3 transcribe.py ...` 开箱即用；自动找不到时设 `INVEST_WIKI_PY=/path/to/python3` 覆盖。
 
 首次运行脚本会自动从 ModelScope 下载 SenseVoiceSmall（~893MB）到 `~/.cache/modelscope/`，后续完全离线。
 
@@ -103,7 +106,7 @@ conflicts: []
 
 | 现象 | 可能原因 | 处理 |
 |---|---|---|
-| `ModuleNotFoundError: funasr` | 未安装 | `pip3 install --break-system-packages funasr` |
+| `ERROR: 缺少依赖：['funasr', 'torch']` | 依赖没装进可被自动发现的解释器 | 装到 homebrew python：`/opt/homebrew/bin/python3 -m pip install --break-system-packages funasr torch torchaudio pyyaml`；或设 `INVEST_WIKI_PY=/path/to/python3` |
 | `ffmpeg: command not found` | 未安装 | `brew install ffmpeg` |
 | 模型下载卡住 | ModelScope 拥堵 / 网络问题 | 等待重试；持续失败时手动从 [ModelScope iic/SenseVoiceSmall](https://www.modelscope.cn/models/iic/SenseVoiceSmall) 下载 `model.pt` 到 `~/.cache/modelscope/hub/models/iic/SenseVoiceSmall/`（脚本会自动识别该本地路径并跳过下载） |
 | 输出大量乱码 / 重复 | 视频音频质量太差 / 强 BGM | 用 ffmpeg 预处理增强音频；或接受小段失真 |
