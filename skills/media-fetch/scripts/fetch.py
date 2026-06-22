@@ -58,8 +58,10 @@ def check_douyin_deps():
     except ImportError:
         print(
             "ERROR: 缺少依赖 playwright\n"
-            "  pip3 install --break-system-packages playwright\n"
-            "  python3 -m playwright install chromium",
+            "  /opt/homebrew/bin/python3 -m pip install --break-system-packages playwright\n"
+            "  /opt/homebrew/bin/python3 -m playwright install chromium\n"
+            "  （依赖须装进运行脚本的解释器；脚本命中 Douyin 会自动切到装了依赖的 python，"
+            "仍失败可设 INVEST_WIKI_PY=/path/to/python3）",
             file=sys.stderr,
         )
         sys.exit(1)
