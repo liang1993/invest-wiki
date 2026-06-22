@@ -71,9 +71,33 @@ python3.14 skills/douyin-distill/scripts/transcribe.py --workdir "$WD"     # 模
 | 全集太大 | 19min×全集没必要，选 12–18 条均衡样本即可 |
 | 逐字稿 ASR 错别字 | 人名/术语机器转写会错（霍华德·马克思→花华的马克思），蒸馏时用正确写法并在声纹 ref 记备忘 |
 
+## 增量监控：watch.py（博主更新 → 每日摘要）
+
+蒸馏是"一次性把博主提炼成 skill"；**watch.py 是"持续盯一个已蒸馏博主有没有新作品"**——给定主页，检测新作品则下载+转写，输出结果 JSON，供上层（Claude 定时任务）读稿→摘要→发飞书。机械层不做摘要/不发通知。
+
+```bash
+/opt/homebrew/bin/python3 skills/douyin-distill/scripts/watch.py              # 正常：枚举→比对→下载转写新作品→输出 JSON
+/opt/homebrew/bin/python3 skills/douyin-distill/scripts/watch.py --seed       # 建基线（标记当前最新为已见，不下载）
+/opt/homebrew/bin/python3 skills/douyin-distill/scripts/watch.py --check-only # 只枚举+比对，不下载不改状态
+```
+
+输出 `RESULT_JSON=<json>`，`status` ∈ `ok`(有新作品，含 transcript_path) / `no_update` / `login_required` / `seeded` / `error`。
+
+**与蒸馏流程的区别**（避免混淆）：
+- 独立 **轻量枚举**：只抓首屏最新 ~25 条做"有没有新的"判断（不滚到底全量），约 15-20s 关窗；CDP 禁缓存保证时效。
+- 独立 **登录态** `~/.douyin-watch/userdata`（与蒸馏 `$WD/userdata` 隔离，互不干扰），状态 `~/.douyin-watch/<creator>_seen.json`，**均不入 repo**。
+- **登录失效判定**比蒸馏更严：0 作品 / 登录墙文本 / 最新作品超 `STALE_DAYS`(默认5) 天 任一即报 `login_required`——因为撞登录墙时抖音返回**滞后的公开快照**（非空），只判"0 条"会漏报。
+
+**定时任务接线**（Claude app 本地定时，非 launchd——launchd 里 `claude -p` 因 OAuth token 被主程序轮换而认证不了）：用 `scheduled-tasks` MCP 建每日任务，prompt 让 Claude 跑 watch.py → 读 `transcript_path` → 写结构化中文摘要 → `lark-cli im +messages-send --as bot --user-id <open_id> --markdown` 发飞书。已部署：`艾丽的无废话财经` 每早 8:55（任务 `watch-ellie-douyin`）。
+
+**登录过期处理**：任务检测到 `login_required` 会把重登命令发飞书；手动扫码一次即可：
+```bash
+/opt/homebrew/bin/python3 skills/douyin-distill/scripts/login.py "<主页URL>" --workdir ~/.douyin-watch
+```
+
 ## 边界与隐私
 
-- **语料不入 repo**：`$WD`（媒体/逐字稿/userdata）留本地 `~/liang/douyin-distill/`（与 repo 同级、非 git），只 commit `skills/<persona>/`。
+- **语料不入 repo**：`$WD`（媒体/逐字稿/userdata）留本地 `~/liang/douyin-distill/`（与 repo 同级、非 git），只 commit `skills/<persona>/`。监控的 `~/.douyin-watch/`（登录态+已见状态）同理不入 repo。
 - **登录态清理**：蒸馏完 `rm -rf "$WD/userdata"`（含用户抖音会话）；不需要的媒体也可删。
 - **忠实优先**：声纹频次必须 grep 实测、框架/信条/案例必须有逐字稿原文支撑；第 7 步校验不可省。
 - 产出的人设 skill 是**解读/风格层**，须在其 SKILL.md 里写清"数字仍走取数 skill 核实、不预测点位、不荐股"。
