@@ -24,6 +24,11 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+# 解释器自愈：Douyin 路径需要 playwright，bare `python3` 可能是缺它的 Xcode python。
+# 仅在命中 douyin 时按需重入（见 main）；Apple Podcasts 纯标准库，任意解释器可跑。
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "_shared"))
+from interp import ensure_interpreter  # noqa: E402
+
 DEFAULT_TARGET = Path.home() / "Downloads/media-fetch"
 UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -305,6 +310,7 @@ def main():
 
     try:
         if platform == "douyin":
+            ensure_interpreter(["playwright"])   # 缺 playwright 时切到装了依赖的解释器重跑
             check_douyin_deps()
             data = asyncio.run(fetch_douyin(args.url))
         elif platform == "applepodcast":
