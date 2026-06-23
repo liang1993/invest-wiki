@@ -6,6 +6,7 @@
 模块：
   --stocks   关注个股当前价（A 股 + 港股走腾讯实时含当日涨跌幅，其它走 yfinance）
   --forex    人民币汇率（yfinance）
+  --indices  大盘指数波动监测（7 指数逐年/近端年化波动 + 波动档，跨市场路由）
   --all      以上全部（默认）
 
 关注列表从 wiki/stocks/focus/ 目录自动获取，股票代码从文件标题行解析。
@@ -153,14 +154,26 @@ def fetch_forex():
         print(f"  获取失败: {e}")
 
 
+def fetch_indices():
+    """大盘指数波动监测：逐年/近端年化波动 + 波动档（跨市场路由，逻辑在共享层）。"""
+    print()
+    try:
+        from marketdata import index_hist
+    except ImportError as e:
+        print(f"  错误: 无法导入 marketdata.index_hist — {e}")
+        return
+    index_hist.print_monitor()
+
+
 def main():
     parser = argparse.ArgumentParser(description="定期复盘 — 数据获取")
     parser.add_argument("--stocks", action="store_true", help="关注个股当前价")
     parser.add_argument("--forex", action="store_true", help="人民币汇率")
+    parser.add_argument("--indices", action="store_true", help="大盘指数波动监测")
     parser.add_argument("--all", action="store_true", help="全部（默认）")
     args = parser.parse_args()
 
-    if not (args.stocks or args.forex):
+    if not (args.stocks or args.forex or args.indices):
         args.all = True
 
     print(f"数据采集时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -169,6 +182,8 @@ def main():
         fetch_stocks()
     if args.all or args.forex:
         fetch_forex()
+    if args.all or args.indices:
+        fetch_indices()
 
 
 if __name__ == "__main__":

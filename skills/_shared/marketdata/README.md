@@ -24,5 +24,10 @@
 （代理 / 接口状态会变）。`etf_hist.py:7` 已有 sina 兜底局部说明；`codes.py` 的 `to_tencent_symbol`
 已支持 ETF 前缀（51x/15x）。
 
+**指数日线（`index_hist.py`）**：大盘指数逐年 / 近端年化波动取数，沿用同一可达性路由——A 股 /
+中证系走新浪 `stock_zh_index_daily`（**非**东财 `_em`）、港股走新浪 `stock_hk_index_daily_sina`、
+美股走 yfinance（限流回退 akshare `index_us_stock_sina`）。注册表 `INDICES` 是跟踪指数集合的唯一来源，
+被 periodic-review `--indices`（1I 大盘指数波动监测）复用。
+
 另：`macro_china_pmi` / `macro_china_stock_market_cap` 等个别 akshare 接口会返回 2008 陈旧数据，
 用前须 WebSearch/WebFetch 兜底（见 [`docs/data-discipline.md`](../../../docs/data-discipline.md) §2「红线时间序列」与 `eval/smoke_marketdata.py`）。
