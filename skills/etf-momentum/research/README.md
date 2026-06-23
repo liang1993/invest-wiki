@@ -25,6 +25,7 @@ python3 bt2_rotation.py     # 轮动趋势止损网格
 | 研究① 单标的 | `bt1_single_asset.py` + `findings_bt1.md` + `bt1_results_long*.csv` | MA过滤>移动止损；单标的 SMA50 最优；移动止损最差 |
 | 研究② 轮动 | `bt2_rotation.py` + `findings_bt2.md` + `out_bt2.txt` | 慢MA边际；**分散是主杠杆(-15.5pts)**；固定%止损无效 |
 | 研究③ 冠军 | `champion.py` + `findings_champion.md` + `out_champion.txt` | **vol-scaling 腰斩回撤**；MA长度二阶；成本后赢家不变 |
+| 研究④ 排序指标 | `bt4_trendquality.py`(隔离) + `bt5_combined.py`(叠加) + `findings_bt4_trendquality.md` + `out_bt4/5.txt` | 趋势质量指标 vs 简单动量（外部输入：抖音"量化均野"复现）：**效率系数 ER 稳压简单动量**(单用 Calmar 0.19→0.25)；斜率×R² 仅 25d 有效、126d 有害；V4 工程细节无贡献。**BT-5：ER edge 没被仓位层吃掉**（去相关+vol@15 上 0.22→0.25）→ 值得切 `momentum.py` 排序口径 |
 | 文献 | `findings_literature.md` | 已 WebFetch/pdftotext 核原文（Barroso/湘财/银河/Daniel-Moskowitz…） |
 | 审计综合 | `findings_bt3_synthesis.md` | **（BT-3 独立审计中，待回填）** |
 
@@ -41,3 +42,4 @@ python3 bt2_rotation.py     # 轮动趋势止损网格
 ## 候选后续
 - 拥挤度叠加在 **38 ETF 细粒度 universe** 上复测（聚集更重，效果可能更大）。
 - 把"分散+去相关+vol-scaling"做进可部署 skill（需引入持仓状态机；wiki 通用版 vs private 个人版分离）。
+- **～~选股层 × 仓位层叠加~~（BT-5 已完成）**：ER 叠到去相关+vol@15 上仍 +0.03 Calmar（全史 0.22→0.25 / 2016+ 0.23→0.26，vol@12 同向），edge 没被仓位层吃掉 → 见 `findings_bt4_trendquality.md` §BT-5。**待办：把 `momentum.py` 排序口径从简单动量切到 ER**（生产改动，需独立验证 + 用户拍板；当前生产仍为简单动量）。
