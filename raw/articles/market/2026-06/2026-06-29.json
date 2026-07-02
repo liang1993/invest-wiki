@@ -1,0 +1,70 @@
+{
+  "date": "2026-06-29",
+  "rows": [
+    {
+      "grp": "A股",
+      "name": "成交额",
+      "reading": "3.52 万亿",
+      "light": "🔴 过热",
+      "vstatus": "ok",
+      "vnote": "双源 腾讯3.52/快照3.54 偏差0.6%"
+    },
+    {
+      "grp": "A股",
+      "name": "主力净流入",
+      "reading": "-495 亿",
+      "light": "🔴 强流出",
+      "vstatus": "ok",
+      "vnote": "单源未交叉 (2026-06-29)"
+    },
+    {
+      "grp": "A股",
+      "name": "涨跌停情绪",
+      "reading": "涨2468/跌2933 涨停193/跌停82",
+      "light": "⚪ 中性(赚钱46%)",
+      "vstatus": "ok",
+      "vnote": "派生(新浪全市场)"
+    },
+    {
+      "grp": "A股",
+      "name": "两融余额",
+      "reading": "29,803 亿 (2026-06-26)",
+      "light": "🟡 警惕",
+      "vstatus": "ok",
+      "vnote": "单源(交易所), 占比待 periodic-review"
+    },
+    {
+      "grp": "中概",
+      "name": "恒生科技",
+      "reading": "4,393 +3.23%",
+      "light": "🟢 强",
+      "vstatus": "ok",
+      "vnote": "单源(腾讯港股)"
+    },
+    {
+      "grp": "中概",
+      "name": "南向净流入",
+      "reading": "-103 亿",
+      "light": "🔵 流出",
+      "vstatus": "ok",
+      "vnote": "单源(成交净买额)"
+    },
+    {
+      "grp": "隔夜",
+      "name": "中概金龙(KWEB)",
+      "reading": "24.47 +2.19% (2026-06-29)",
+      "light": "🟢 强",
+      "vstatus": "ok",
+      "vnote": "单源(^HXC 无数据)"
+    },
+    {
+      "grp": "隔夜",
+      "name": "纳指100",
+      "reading": "29,410 +1.00% (2026-06-29)",
+      "light": "⚪ 平",
+      "vstatus": "ok",
+      "vnote": "(2026-06-29)"
+    }
+  ],
+  "warns": []
+}
