@@ -137,6 +137,43 @@ check("index_hist.get_index_hist(标普500) [us yf→ak]",
       lambda r: (r is not None and len(r) > 200 and has_cols(r, "date", "close"),
                  f"{len(r) if r is not None else 0} 日"), timeout=60)
 
+# ── A3. hk_liquidity 港股流动性取数（canonical HKMA/NYFed/HKEX + 转发源）──
+print("── A3. hk_liquidity 港股流动性 ──")
+
+from marketdata import hk_liquidity as hkl  # noqa: E402
+
+check("hkma_daily(3) [HKMA canonical]", lambda: hkl.hkma_daily(3),
+      lambda r: (len(r) == 3 and r[0]["closing_balance_yi"] is not None
+                 and r[0]["hibor_1m"] is not None,
+                 f"{r[0]['date']} 结余 {r[0]['closing_balance_yi']:.0f} 亿 "
+                 f"1M {r[0]['hibor_1m']:.2f}%"), timeout=120)
+
+check("sofr_last(2) [NYFed canonical]", lambda: hkl.sofr_last(2),
+      lambda r: (len(r) >= 1 and r[0]["rate"] is not None,
+                 f"{r[0]['date']} {r[0]['rate']}%"), timeout=60)
+
+check("usdhkd() [新浪转发源]", lambda: hkl.usdhkd(),
+      lambda r: (r is not None and 7.5 <= r["price"] <= 8.0,
+                 f"{r['price']}（区间 {r['band_pos_pct']}%）"))
+
+check("vhsi_spot() [腾讯转发源]", lambda: hkl.vhsi_spot(),
+      lambda r: (r is not None and r["value"] > 0, f"{r['value']}"))
+
+# 29MB 官方大页：慢但 canonical，须守住正则不漂移
+check("dayquot_recent(1) [HKEX canonical]", lambda: hkl.dayquot_recent(1),
+      lambda r: (len(r) == 1 and r[0]["turnover_yi"] > 0
+                 and r[0]["short_pct_ex_etp"] is not None,
+                 f"{r[0]['date']} 成交 {r[0]['turnover_yi']:,.0f} 亿 "
+                 f"卖空 ex-ETP {r[0]['short_pct_ex_etp']}%"), timeout=150)
+
+check("southbound_hist() [东财转发源·间歇]", lambda: hkl.southbound_hist(),
+      lambda r: (len(r) > 2000 and "net_buy_yi" in r.columns,
+                 f"{len(r)} 日"), timeout=90)
+
+# AH 唯一实时源即最弱源：挂起返回 None 属合法（调用方走未评级路径）
+check("ah_premium() [东财转发源·间歇]", lambda: hkl.ah_premium(),
+      lambda r: (True, f"{r['value']}" if r else "None（间歇挂起→未评级，合法）"))
+
 # ── B. 裸 akshare 调用（市场层 + 宏观）+ known-fail ──────────────────────
 print("── B. 裸 akshare（market / macro）──")
 
