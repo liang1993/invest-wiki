@@ -91,7 +91,7 @@ git config core.hooksPath skills/_shared/hooks   # 一次性，让 git pre-commi
 - 动作：把敏感信息检测逻辑落到 `skills/_shared/hooks/pre-commit`，**按 git hook 语义重写**——发现敏感内容时 `echo` 人类可读理由到 **stderr** 并 `exit 1`（git 只看退出码，不需要 PreToolUse 的 JSON schema）；本地一次性 `git config core.hooksPath skills/_shared/hooks`
 - 为什么不沿用原 PreToolUse 设计：原 `.claude/scripts/check-sensitive.sh` 发 `{"decision":"block"}`（非 PreToolUse 合规 schema，理由写错流），且 `.claude/` 不入版控、PreToolUse matcher 只匹配工具名拦不住 `git commit -am`/`&&`/别名。**git pre-commit 才是能拦住所有 commit 路径的确定性层**
 - 触碰：`skills/_shared/hooks/pre-commit`（新，受版控）；本地 `git config`
-- 验证：staged 一行测试金额/`private/` 引用 → commit 被 exit 1 拦 + stderr 显示理由；正常内容 → 放行；空 staged → 放行
+- 验证：staged 一行测试敏感信息（密钥/卡号等） → commit 被 exit 1 拦 + stderr 显示理由；正常内容 → 放行；空 staged → 放行
 - 风险：低；旧 `.claude/scripts/check-sensitive.sh` 标记 superseded
 
 **0.2 数据层 smoke Eval（Phase 2 基线）**
@@ -209,7 +209,7 @@ Phase 4   (收尾)  ─────── 依赖 Phase 2
 |---|---|---|
 | 区间术语 / 档位 (20) | **→ Hook** | Phase 1.1 已机械强制（warn-only），20 条从"靠记忆"转确定性 |
 | frontmatter 缺失 | **→ Hook** | Phase 1.2 |
-| 隐私 / private 泄漏 | **→ Hook** | Phase 0.1 pre-commit |
+| 隐私 / 个人数据泄漏 | **→ Hook** | Phase 0.1 pre-commit |
 | 接口漂移 / 坏接口 | **→ Eval** | Phase 0.2 smoke + known-fail |
 | 代码转换 (15 部分) | **→ Eval** | Phase 2.2 test_codes；单位 10× 残留仍需 L1 反推 |
 | 口径混用 (22) | **判断·留 Memory** | L2/L3 + verify，不可 hook |

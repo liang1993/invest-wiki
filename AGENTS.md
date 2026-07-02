@@ -305,7 +305,7 @@ wiki/
 
 1. **开工自检**：会话开始若 `git status` 不干净，先向用户确认残留归属（可能是另一 agent 的未竟工作），**不得擅自 commit / revert / 续写他人未提交内容**。
 2. **产出归属**：每条 `wiki/log.md` 条目末尾加 `- **执行**：<harness>/<model>`（如 `claude-code/opus-4.8`、`opencode/deepseek-v4`、`hermes-agent/hermes-4-405b`）——数字错误可溯源到产出模型，跨模型质量对比有据。
-3. **并发边界**：默认**分时**（`wiki/log.md` 与 `index.md` 是追加热点，同工作区并发必冲突）。确需并行：各开 `git worktree` + 独立分支，由用户合并；禁止两 agent 共享同一工作区。**worktree 隐私盲区**：gitignore 的 `CLAUDE.local.md` 与 `private/` 不出现在新 worktree——worktree 内 agent 视为**未读隐私指令**，禁止撰写任何涉持仓 / 金额 / 个人财务内容，相关任务回主工作区分时执行。
+3. **并发边界**：默认**分时**（`wiki/log.md` 与 `index.md` 是追加热点，同工作区并发必冲突）。确需并行：各开 `git worktree` + 独立分支，由用户合并；禁止两 agent 共享同一工作区。**worktree 隐私盲区**：gitignore 的 `CLAUDE.local.md` 不出现在新 worktree——worktree 内 agent 视为**未读隐私指令**，禁止撰写任何涉持仓 / 金额 / 个人财务内容，相关任务回主工作区分时执行。
 4. **纪律等价**：L1/L2/L3 的触发范围、豁免梯度、完成标准 harness 无关。L2 阶段 A 清单必须在该 agent 输出中可见；L3 用 Agent 工具或 verify-cli 二选一，标准同一。**模型弱不构成豁免理由**——弱模型环境更依赖 pre-commit 地板 + verify-cli 必跑。
 5. **能力分级分工**（建议默认）：判断型流程（value-invest 估值、ingest 财报解读、macro-ellie 解读）→ 强模型。**机械型 = 不写 `wiki/` 的任务**（行情 / 宏观取数、etf-momentum 快照、verify-cli 驱动、`raw/` 采集落盘）→ 任意通过冒烟的模型。**注意 scheduled-ingest 回写 wiki 静态章节段、wiki-review 改 wiki 正文均属写入类**，必须过冒烟 #2 才可跑（无"机械任务"名义的未校验写入旁路）。
 6. **状态共享走 repo**：教训、偏好、约定一律落 AGENTS.md / `docs/` / `log.md`，不留 harness 私有记忆（Claude auto-memory、Hermes 的 MEMORY.md / SOUL.md 体系）。任一 harness 的项目级记忆文件若生成在仓库内，加入 `.gitignore`，防单 harness 私有状态混入共享事实源。

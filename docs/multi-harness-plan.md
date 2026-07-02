@@ -40,7 +40,7 @@
 
 > ¹ 统计命令：`grep -rE 'WebFetch|WebSearch|Agent 工具|Read pages=' CLAUDE.md docs/ skills/ templates/`（行计，排除本方案文件）。Phase 1 验证以重跑此命令为基线。
 
-**无需调整**（已是 harness 中立）：`raw/` `wiki/` `templates/` `private/`（纯 markdown+git）；`skills/_shared/marketdata` + 各 skill `scripts/*.py`（纯 Python）；git pre-commit 隐私闸门（`core.hooksPath`，对所有 commit 路径生效）；SKILL.md frontmatter（15 个 skill 全部仅 `name`+`description`，已是 agentskills.io 开放标准最小格式）。
+**无需调整**（已是 harness 中立）：`raw/` `wiki/` `templates/`（纯 markdown+git）；`skills/_shared/marketdata` + 各 skill `scripts/*.py`（纯 Python）；git pre-commit 隐私闸门（`core.hooksPath`，对所有 commit 路径生效）；SKILL.md frontmatter（15 个 skill 全部仅 `name`+`description`，已是 agentskills.io 开放标准最小格式）。
 
 ## 2. 目标 harness 事实基线（2026-06 核查）
 
@@ -145,7 +145,7 @@
 
 1. **开工自检**：会话开始若 `git status` 不干净，先向用户确认残留归属（可能是另一 agent 的未竟工作），不得擅自 commit / revert / 续写他人未提交内容
 2. **产出归属**：每条 `wiki/log.md` 条目末尾加 `- **执行**：<harness>/<model>`（如 `claude-code/fable-5`、`opencode/deepseek-v4`、`hermes-agent/hermes-4-405b`）。价值：数字错误可溯源到产出模型，跨模型质量对比有数据基础。约定起步；后续可升级为 pre-commit 对新增 log 条目做"含执行行"的 warn 检查（列入 hook 候选，与 skill-refactor-plan 附录 B 的 lint-narrative 同队列）
-3. **并发边界**：默认**分时**——同一时刻只有一个 agent 写仓库（`wiki/log.md` 与 `index.md` 是追加热点，同工作区并发必冲突）。确需并行：各开 `git worktree` + 独立分支，由用户合并；禁止两个 agent 共享同一工作区。**worktree 隐私盲区**：gitignore 的 `CLAUDE.local.md` 与 `private/` 不会出现在新 worktree——worktree 内 agent 视为**未读隐私指令**，禁止撰写任何涉持仓/金额/个人财务的内容，相关任务回主工作区分时执行
+3. **并发边界**：默认**分时**——同一时刻只有一个 agent 写仓库（`wiki/log.md` 与 `index.md` 是追加热点，同工作区并发必冲突）。确需并行：各开 `git worktree` + 独立分支，由用户合并；禁止两个 agent 共享同一工作区。**worktree 隐私盲区**：gitignore 的 `CLAUDE.local.md` 不会出现在新 worktree——worktree 内 agent 视为**未读隐私指令**，禁止撰写任何涉持仓/金额/个人财务的内容，相关任务回主工作区分时执行
 4. **纪律等价**：L1/L2/L3 的触发范围、豁免梯度、完成标准 harness 无关。L2 阶段 A 清单必须在该 agent 的对话/输出中可见；L3 用 Agent 工具或 verify-cli 二选一，标准同一。**模型弱不构成豁免理由**——恰恰相反，弱模型环境更依赖 pre-commit 地板 + verify-cli 必跑
 5. **能力分级分工**（建议默认，非强制）：判断型流程（value-invest 估值、ingest 财报解读、macro-ellie 解读）→ 强模型。**机械型 = 不写 `wiki/` 的任务**（行情/宏观取数计算、etf-momentum 快照、verify-cli 驱动、`raw/` 采集落盘）→ 任意通过冒烟 #1/#3 的模型。**注意：scheduled-ingest 的"回写 wiki 静态章节"段与 wiki-review 改写 wiki 正文，均属写入类**——必须通过冒烟 #2 才可跑（B1 修订：堵住"机械任务"名义下的未校验写入旁路）
 6. **状态共享走 repo**：教训、偏好、约定一律落 AGENTS.md / docs/ / log.md，不留在 harness 私有记忆（Claude auto-memory、Hermes 的 MEMORY.md/SOUL.md 体系）。Hermes Agent 的项目级记忆文件若生成在仓库内，加入 `.gitignore`，防止单 harness 私有状态混入共享事实源
@@ -155,7 +155,7 @@
   **裁定已完成（2026-06-10，19 条全按建议，Phase 5 照此执行、无需再询问）**：
   - ①已编码 5 条不动：远期前瞻（value-invest SKILL.md:563）/ 一阶原因归因（:901）/ 弱周期成长 P/S（:87）/ 数据校验纪律（CLAUDE.md L1-L3）/ 宏观量化月度工作流（macro-quant-rebalance SKILL.md）
   - ②通用纪律 6 条迁仓库：财报分析一次到位 → value-invest SKILL.md；单位量级改基数后 grep 重算派生值 → data-discipline「反推校验」；大改动双门 review 工作流 → AGENTS.md「工程改动工作流」小节；时间序列红线看日序+akshare 陈旧接口兜底 → data-discipline / `_shared/eval` known-fail 注释；取数源可达性全局约束 → marketdata README（etf_hist.py:7 已有局部）；博主蒸馏 pipeline 踩坑 → skills/macro-ellie/references/
-  - ③个人化 8 条迁私有层：指令型 4 条（展示格式 / 分层框架 / wiki 个人财务禁令 / 个股分析范围）→ `CLAUDE.local.md`；**数字型 4 条采用 private/ 指针式**——数字落 `private/profile.md`，`CLAUDE.local.md` 仅留一行"涉个人财务分析时再读"指针（第三方模型 API 默认接触不到数字）
+  - ③个人化 8 条迁私有层：指令型 4 条（展示格式 / 分层框架 / wiki 个人财务禁令 / 个股分析范围）→ `CLAUDE.local.md`；**数字型 4 条落本仓外私有层**——`CLAUDE.local.md` 仅留一行"涉个人财务分析时再读"指针（第三方模型 API 默认接触不到数字）
   - ④弃置 0 条。迁移完成后对应 memory 文件按 CLAUDE.md memory 规则瘦身/删除，防双源漂移
 - 验证：协议落 AGENTS.md；索引表生成可重入（重跑 bootstrap.sh 无 diff）；memory 打标清单输出
 
@@ -215,7 +215,7 @@ Phase 7 (冒烟验收) ── 最后，逐 harness；#1–#3 通过 = feature �
 | search 后端 | Tavily 单后端起步 | 不可达再换 Serper / 自托管 SearXNG |
 | verify 报告落盘 | 默认 stdout 不入库；估值页沿用既有 `raw/articles/.../verify_report.md` 归档 | 全部落 `/tmp` |
 | log.md 执行归属是否回填存量 | 不回填，新条目起 | — |
-| memory 迁移打标结果 | **已裁定（2026-06-10）**：19 条全按建议执行；数字型 4 条走 private/ 指针式。明细见 Phase 5 配套动作 B，实施时照单执行 | — |
+| memory 迁移打标结果 | **已裁定（2026-06-10）**：19 条全按建议执行；数字型 4 条走本仓外私有层。明细见 Phase 5 配套动作 B，实施时照单执行 | — |
 
 ---
 
@@ -229,7 +229,7 @@ Phase 7 (冒烟验收) ── 最后，逐 harness；#1–#3 通过 = feature �
 | S2 | Phase 1 引用 verify-cli 早于其存在，合入时点未定义 | §3 头部明确"P0–P6 完成 + 冒烟 #1–#3 通过后整体合入 main" |
 | S3 | verify-cli 三缺口：无章节定位 / 漏 WebFetch≤3 预算 / 工具映射不穷举（Grep 等） | `--sections` 必填；预算补全；映射前言穷举 + Grep 声明读全文扫描 |
 | S4 | 改写处遗漏 value-invest-verify SKILL.md（弱模型主入口）；缺原生优先声明 | 改写扩为 5 处（含 Step 2 / 3.6）；解析规则加"原生优先" |
-| S5 | worktree 不含 gitignored 的 local 指令与 private/，隐私纪律在并行模式下残缺 | 协议 3 补 worktree 隐私盲区条款 |
+| S5 | worktree 不含 gitignored 的 local 指令，隐私纪律在并行模式下残缺 | 协议 3 补 worktree 隐私盲区条款 |
 | S6 | 耦合点 #7（存量 auto-memory）无 Phase 解决，与核心判断自相矛盾 | Phase 5 配套动作 B：四类打标迁移，用户裁定 |
 | S7 | 协议 7"各 harness 权限各配"无人落实 | Phase 6 接线清单含权限基线 + 验证步骤 |
 | Nit | AGENTS.local.md 改名多余 / OpenCode verifier 双路径过度设计 / search 多后端投机 / 依赖图与文本张力 / lint argv 实现注 / arbiter read_file 代码级盲化 / 协议 2 理由混淆 / 索引表第三登记点 / P7 工时乐观 / 行号偏差 | 全部采纳：Phase 0 简化保留 CLAUDE.local.md 原名；verifier.md 推迟；Tavily 单后端；依赖图改 Phase 5 依赖 3；`|| true` 与 staged 备注；arbiter 排除 `wiki/**`；协议 2 改"约定起步+hook 候选"；索引表 bootstrap 生成；P7 改 1-2h 起；行号修正 |

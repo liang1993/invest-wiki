@@ -41,5 +41,5 @@ python3 bt2_rotation.py     # 轮动趋势止损网格
 
 ## 候选后续
 - 拥挤度叠加在 **38 ETF 细粒度 universe** 上复测（聚集更重，效果可能更大）。
-- 把"分散+去相关+vol-scaling"做进可部署 skill（需引入持仓状态机；wiki 通用版 vs private 个人版分离）。
+- 把"分散+去相关+vol-scaling"做进可部署 skill（需引入持仓状态机；wiki 通用版 vs 个人版分离）。
 - **～~选股层 × 仓位层叠加~~（BT-5 已完成）**：ER 叠到去相关+vol@15 上仍 +0.03 Calmar（全史 0.22→0.25 / 2016+ 0.23→0.26，vol@12 同向），edge 没被仓位层吃掉 → 见 `findings_bt4_trendquality.md` §BT-5。**待办：把 `momentum.py` 排序口径从简单动量切到 ER**（生产改动，需独立验证 + 用户拍板；当前生产仍为简单动量）。

@@ -9,9 +9,7 @@
 #  脚本 .claude/scripts/check-sensitive.sh 的 {"decision":"block"} 既非 PreToolUse
 #  合规 schema、又把理由写错流。本 hook superseded 之。）
 #
-# 两类检查：
-#   A. 通用敏感信息（API key / 手机 / 邮箱 / 身份证 / 银行卡 / 私钥 / 密码）
-#   B. 项目特有：wiki/ 文件禁止引用 private/（CLAUDE.local.md 单向引用边界）
+# 检查：通用敏感信息（API key / 手机 / 邮箱 / 身份证 / 银行卡 / 私钥 / 密码）
 
 set -u
 
@@ -66,13 +64,8 @@ if [ -n "$added_lines" ]; then
   fi
 fi
 
-# ── B. wiki/ 禁止引用 private/ ───────────────────────────────────
+# ── B. staged wiki md 列表（供下方 lint 兜底用） ───────────────────────────────────
 staged_wiki=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -E '^wiki/.*\.md$' || true)
-for f in $staged_wiki; do
-  if git diff --cached -- "$f" 2>/dev/null | grep '^+[^+]' | grep -qE 'private/'; then
-    found="${found}wiki 引用 private/ (${f}); "
-  fi
-done
 
 # ── C. wiki lint 双栈（warn-only）：写后 PostToolUse hook 的 commit 时兜底 ────────
 # 非 Claude Code harness 无 PostToolUse；这里对 staged wiki md 跑同两个 lint 的 argv

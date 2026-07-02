@@ -8,7 +8,7 @@
 
 | 文件 | 类型 | 触发 | 作用 | 当前模式 |
 |---|---|---|---|---|
-| `pre-commit` | git hook | `git commit` | 敏感信息（key/手机/邮箱/身份证/卡号/私钥/密码）+ wiki 引用 private/ → 阻止提交；**段 C 另对 staged wiki 跑两 lint 的 argv 模式兜底** | **block**（A/B）+ **warn**（C） |
+| `pre-commit` | git hook | `git commit` | 敏感信息（key/手机/邮箱/身份证/卡号/私钥/密码）→ 阻止提交；**段 C 另对 staged wiki 跑两 lint 的 argv 模式兜底** | **block**（A）+ **warn**（C） |
 | `lint-interval-terms.py` | PostToolUse **+ pre-commit(argv)** | Write/Edit 个股 wiki · commit 时 | 非白名单区间档位（加仓/高估/低估区间）告警 | **warn-only**（exit 1） |
 | `lint-frontmatter.py` | PostToolUse **+ pre-commit(argv)** | Write/Edit wiki 页 · commit 时 | frontmatter 缺 tags/updated 告警 | **warn-only**（exit 1） |
 

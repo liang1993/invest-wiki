@@ -9,7 +9,7 @@
   "动量 top-K + 慢线过滤" 基础上加两层经验证的风控:
     ① 去相关选择:从动量前 TOPN 合格里挑 TOPK 个互相关最低的(抗主题聚集/拥挤)
     ② 波动率目标:给出建议敞口 = min(1, 15%/组合已实现波动)(危机自动减仓)
-  二者都只用市场数据、holdings-agnostic。buffer 出场状态机属个人版(private)。
+  二者都只用市场数据、holdings-agnostic。buffer 出场状态机属个人版。
 
 跑法:
   python3 momentum.py          # 打印当前状态表 + 信号
