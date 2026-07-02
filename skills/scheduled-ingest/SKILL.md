@@ -90,6 +90,7 @@ skills/scheduled-ingest/
 | Job ID | 触发 | 状态 |
 |---|---|---|
 | auto-monthly-sales | 每月 10-15 日（懂车帝次月 10 日发布）| ✅ 已上线 + 已注册 cron |
+| hk-liquidity | periodic-review 每次复盘（≈周）/ 手动 | ✅ 已上线（手动/复盘触发，暂不注册 cron）|
 
 新增 job 时在此表登记 + 创建 `jobs/<id>.md`。
 
