@@ -83,17 +83,10 @@ def _in_range(val, lo_hi) -> bool:
 # ── 货币面（canonical）────────────────────────────────────────────────
 
 
-def hkma_daily(n: int = 30) -> list[dict]:
-    """HKMA 银行体系流动性日频（新→旧，n ≤ 100 单页拉齐）。
-
-    返回字段：date / closing_balance_yi（总结余，亿港元）/ hibor_on /
-    hibor_1m / base_rate / market_activities（金管局当日操作，非 0 =
-    兑换保证触发级干预，是 ⚡ 事件传感器）。
-    HIBOR 越界（脏数据）置 None。
-    """
-    resp = _get(f"{HKMA_URL}?pagesize={min(n, 100)}", timeout=60)
+def _parse_hkma_records(records: list[dict]) -> list[dict]:
+    """HKMA 原始记录 → 标准字段（独立成纯函数供单测：sanity 过滤脏数据）。"""
     out = []
-    for r in resp.json()["result"]["records"][:n]:
+    for r in records:
         hibor_on = r.get("hibor_overnight")
         hibor_1m = r.get("hibor_fixing_1m")
         cb = r.get("closing_balance")
@@ -106,6 +99,21 @@ def hkma_daily(n: int = 30) -> list[dict]:
             "market_activities": r.get("market_activities"),
         })
     return out
+
+
+def hkma_daily(n: int = 30) -> list[dict]:
+    """HKMA 银行体系流动性日频（新→旧）。
+
+    注意：单页上限 100，n > 100 会被静默截断（本模块用途 ≤ 月级窗口，
+    够用；要全史用 offset 翻页，见 docs/hk-liquidity-plan.md 踩坑 1）。
+
+    返回字段：date / closing_balance_yi（总结余，亿港元）/ hibor_on /
+    hibor_1m / base_rate / market_activities（金管局当日操作，非 0 =
+    兑换保证触发级干预，是 ⚡ 事件传感器；百万港元口径）。
+    HIBOR 越界（脏数据，如 2019 某记录 199.29）置 None。
+    """
+    resp = _get(f"{HKMA_URL}?pagesize={min(n, 100)}", timeout=60)
+    return _parse_hkma_records(resp.json()["result"]["records"][:n])
 
 
 def sofr_last(n: int = 5) -> list[dict]:
@@ -153,7 +161,11 @@ def hkex_dayquot(date: _dt.date, *, timeout: float = 90.0) -> dict | None:
         if e.response is not None and e.response.status_code == 404:
             return None
         raise
-    text = resp.text
+    return _parse_dayquot(resp.text, date)
+
+
+def _parse_dayquot(text: str, date: _dt.date) -> dict | None:
+    """dayquot 页正则提取（独立成纯函数供单测守正则漂移）。"""
     m_turn = re.search(r"Total market turnover\s*:\s*HKD\s*([\d,]+)", text)
     if not m_turn:
         return None
@@ -168,14 +180,16 @@ def hkex_dayquot(date: _dt.date, *, timeout: float = 90.0) -> dict | None:
 
 
 def dayquot_recent(days: int = 5, *, end: _dt.date | None = None,
-                   max_gap: int = 3) -> list[dict]:
+                   max_gap: int = 4) -> list[dict]:
     """回收最近 days 个交易日的 dayquot（新→旧）。
 
     节假日 guard：非周末日缺文件按节假日跳过；连续 max_gap 个非周末日
     无数据则 RuntimeError（防 URL 格式漂移被当节假日吞掉）。
+    max_gap 默认 4：港股农历新年可连休 3 个非周末日，3 会年年误报。
     """
     out: list[dict] = []
-    d = end or (_dt.date.today() - _dt.timedelta(days=1))
+    start = end or (_dt.date.today() - _dt.timedelta(days=1))
+    d = start
     gap = 0
     while len(out) < days:
         if d.weekday() < 5:
@@ -190,8 +204,7 @@ def dayquot_recent(days: int = 5, *, end: _dt.date | None = None,
                         f"连续 {max_gap} 个非周末日无 dayquot（最后尝试 {d}），"
                         "疑似 URL 格式漂移而非节假日")
         d -= _dt.timedelta(days=1)
-        if (len(out) == 0 and ( _dt.date.today() - d).days > 15) or \
-           ((_dt.date.today() - d).days > 30):
+        if (start - d).days > 30:  # 以 end 为基准，支持历史回填
             raise RuntimeError("dayquot 回溯超限（>30 天），中止")
     return out
 
@@ -263,13 +276,14 @@ def ah_premium() -> dict | None:
         data = resp.json().get("data")
     except Exception:  # noqa: BLE001 —— 间歇源，失败即 None
         return None
-    if not data or data.get("f43") is None:
-        return None
+    if not data or not isinstance(data.get("f43"), (int, float)):
+        return None  # f43 可能为占位符 "-"
     val = data["f43"] / 100.0
     if not _in_range(val, AH_RANGE):
         return None
+    f60 = data.get("f60")
     return {"value": val,
-            "prev_close": data["f60"] / 100.0 if data.get("f60") else None,
+            "prev_close": f60 / 100.0 if isinstance(f60, (int, float)) else None,
             "ts": data.get("f86")}
 
 

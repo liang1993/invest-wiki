@@ -145,11 +145,14 @@ def scan_events(hkma_rows: list[dict], sb_daily: list[tuple[str, float]],
     for r in rows:
         act = str(r.get("market_activities") or "").replace(",", "").strip()
         try:
-            nonzero = act != "" and float(act) != 0
+            act_val = float(act) if act else 0.0
         except ValueError:
-            nonzero = False
-        if nonzero:
-            events.append(f"{r['date']} 金管局操作 {act}（兑换保证触发级干预）")
+            act_val = 0.0
+        if act_val != 0:
+            # market_activities 与 closing_balance 同为百万港元口径，换算成亿再渲染，
+            # 防"+12788"进 wiki 被按亿误读（100× 量级）
+            events.append(f"{r['date']} 金管局操作 {act_val / 100:+,.1f} 亿"
+                          "（兑换保证触发级干预）")
     rows_old2new = list(reversed(rows))
     for prev, cur in zip(rows_old2new, rows_old2new[1:]):
         if prev.get("hibor_1m") is not None and cur.get("hibor_1m") is not None:
@@ -173,9 +176,13 @@ def is_stale(date_iso: str | None, today: dt.date | None = None) -> bool:
 
 # ── 采集 + 渲染 ──────────────────────────────────────────────────────────
 
-def collect(days_back: int) -> dict:
-    """拉全部 9 指标 → 结构化 snapshot dict（含缺数清单与来源标注）。"""
-    from marketdata import hk_liquidity as hk
+def collect(days_back: int, hk=None) -> dict:
+    """拉全部 9 指标 → 结构化 snapshot dict（含缺数清单与来源标注）。
+
+    hk 参数仅供测试注入 stub 模块；生产走真实 marketdata.hk_liquidity。
+    """
+    if hk is None:
+        from marketdata import hk_liquidity as hk
     snap: dict = {"date": dt.date.today().isoformat(), "missing": [], "sources": {}}
 
     def _try(name, fn, source):
@@ -193,6 +200,9 @@ def collect(days_back: int) -> dict:
                 "HKMA Open API daily-figures-interbank-liquidity [观测]")
     sofr = _try("SOFR", lambda: hk.sofr_last(5),
                 "NY Fed markets API sofr [观测]")
+    if sofr and is_stale(sofr[0].get("date")):
+        snap["missing"].append(f"SOFR（stale：{sofr[0].get('date')}）")
+        sofr = None  # stale SOFR 不参与利差计算
     fx = _try("USDHKD", hk.usdhkd, "新浪 fx_susdhkd [观测·转发源]")
     dayq = _try("成交/卖空", lambda: hk.dayquot_recent(5),
                 "HKEX dayquot（近 5 交易日）[观测]")
@@ -225,6 +235,9 @@ def collect(days_back: int) -> dict:
 
     snap["sb_5d"] = snap["sb_prev_5d"] = None
     snap["sb_daily"] = []
+    if sb is not None and len(sb) < 10:
+        snap["missing"].append(f"南向（序列不足：{len(sb)} 行 < 10）")
+        sb = None
     if sb is not None and len(sb) >= 10:
         tail = sb.tail(days_back + 5)
         snap["sb_daily"] = [(str(r.date)[:10], float(r.net_buy_yi))

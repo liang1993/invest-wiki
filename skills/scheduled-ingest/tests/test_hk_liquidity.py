@@ -63,8 +63,8 @@ def test_flow_light_anti_flicker():
     # 单窗小幅为负 → 🟡；连续两窗 <0 → 升 🔴
     assert flow_light(-50, 30)[0] == "🟡"
     assert flow_light(-50, -100)[0] == "🔴"
-    # 2026-07-02 实况：本窗 -178、前窗为正 → 🟡
-    assert flow_light(-178, 55)[0] == "🟡"
+    # 2026-07-02 实况：本窗 -178、前窗 +102.9 为正 → 🟡
+    assert flow_light(-178, 102.9)[0] == "🟡"
 
 
 # ── 派生与标签 ──────────────────────────────────────────────────────────
@@ -98,7 +98,8 @@ def test_scan_events():
     ]
     sb = [("2026-06-29", -103.4), ("2026-06-30", 58.9), ("2026-06-01", -300.0)]
     ev = "\n".join(scan_events(hkma, sb, days_back=10, today=today))
-    assert "2026-06-29 金管局操作 +11660" in ev
+    # market_activities 百万口径 → 渲染为亿（防 100× 误读，门2 修）
+    assert "2026-06-29 金管局操作 +116.6 亿" in ev
     assert "2026-06-29 南向单日 -103" in ev
     assert "1M HIBOR 单日 +0.65pp" in ev        # 6/26 2.30 → 6/29 2.95
     assert "2026-06-01" not in ev               # 窗口外
