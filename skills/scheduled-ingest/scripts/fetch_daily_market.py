@@ -112,59 +112,64 @@ def delta_pass(rows, history):
         r["delta"] = f"昨{v - prev[0]:+.{p}f}·均5 {sum(last5) / len(last5):.{p}f}"
 
 
-# ---------- 一级行业 (同花顺: 每日同日汇总 / 回填走指数历史) ----------
-def fetch_industry(target=None, retries=3):
-    """行业涨跌% + 真实总成交额（亿），按涨跌降序返回 (数据日期, [[行业,涨跌%,成交额],...])。
-    - target=None（每日）: 同花顺行业汇总 `stock_board_industry_summary_ths` —— **同日实时快照**,
-      1 call, 真实总成交额（覆盖 ~100%）, 非 eastmoney, 无滞后。
-    - target=历史日（回填）: 逐行业指数历史 `stock_board_industry_index_ths`（summary 无历史）。"""
+# ---------- 申万一级 31 行业 (index_hist_sw 日频涨跌+成交额 / sw_index_first_info 估值) ----------
+def _fnum(x, nd):
+    """估值数值格式化: None/NaN/非数 → None。"""
+    try:
+        v = float(x)
+        return None if v != v else round(v, nd)      # v!=v 判 NaN
+    except (TypeError, ValueError):
+        return None
+
+
+def fetch_industry(target=None, retries=2):
+    """申万一级 31 行业: 涨跌% + 成交额(亿元) + 估值(PE_TTM/PB/股息率%)。
+    按涨跌降序返回 (数据日期, [[行业, 涨跌%, 成交额亿, PE, PB, 股息%], ...])。
+    - 涨跌%/成交额: 逐行业 `index_hist_sw`（申万宏源指数日 K，成交额单位亿元，Σ31≈全市场）；
+      target=None（每日）取最近完整交易日，target=历史日（回填）取截至该日两根收盘。
+    - 估值: `sw_index_first_info`（1 call，最新静态快照；回填日按最新估值近似标注）。
+    日度与回填同一路径（统一指数日 K，无 realtime 盘前语义风险）。31 call ~20s。"""
     import akshare as ak, time
-    if target is None:
-        last_err = None
+    with redirect_stderr(io.StringIO()):
+        fi = ak.sw_index_first_info()
+    val, codes = {}, []
+    for _, r in fi.iterrows():
+        nm = str(r["行业名称"])
+        val[nm] = (_fnum(r.get("TTM(滚动)市盈率"), 1), _fnum(r.get("市净率"), 2),
+                   _fnum(r.get("静态股息率"), 2))
+        codes.append((str(r["行业代码"]).split(".")[0], nm))   # 801010.SI -> 801010
+    rows, ddate = [], None
+    for code, nm in codes:
+        pair = None
         for _ in range(retries):
             try:
                 with redirect_stderr(io.StringIO()):
-                    df = ak.stock_board_industry_summary_ths()
-                rows = [[str(r["板块"]), round(float(r["涨跌幅"]), 2), round(float(r["总成交额"]))]
-                        for _, r in df.iterrows()]
-                rows.sort(key=lambda x: x[1], reverse=True)
-                return "最新收盘", rows
-            except Exception as e:
-                last_err = e; time.sleep(1.0)
-        raise last_err
-    # --- 回填历史日: 逐行业指数历史 ---
-    with redirect_stderr(io.StringIO()):
-        names = ak.stock_fund_flow_industry(symbol="即时")["行业"].tolist()
-    s = (target - datetime.timedelta(days=12)).strftime("%Y%m%d"); e = target.strftime("%Y%m%d")
-    rows, ddate = [], None
-    for nm in names:
-        pair = None
-        for _ in range(2):
-            try:
-                with redirect_stderr(io.StringIO()):
-                    df = ak.stock_board_industry_index_ths(symbol=nm, start_date=s, end_date=e)
-                df = df[df["日期"] <= target].sort_values("日期")
-                if len(df) >= 2:
-                    pair = (df.iloc[-1], df.iloc[-2])
-                break
+                    h = ak.index_hist_sw(symbol=code, period="day")
+                if target is not None:
+                    h = h[h["日期"].astype(str).str[:10] <= str(target)]
+                if len(h) >= 2:
+                    pair = (h.iloc[-1], h.iloc[-2]); break
             except Exception:
-                time.sleep(0.4)
+                time.sleep(0.3)
         if pair is None:
             continue
         cur, prev = pair
-        rows.append([str(nm), round((cur["收盘价"] / prev["收盘价"] - 1) * 100, 2),
-                     round(cur["成交额"] / 1e8)])
-        ddate = cur["日期"]
+        pe, pb, div = val.get(nm, (None, None, None))
+        rows.append([nm, round((cur["收盘"] / prev["收盘"] - 1) * 100, 2),
+                     round(float(cur["成交额"])), pe, pb, div])
+        ddate = str(cur["日期"])[:10]
     rows.sort(key=lambda r: r[1], reverse=True)
-    return (str(ddate) if ddate else None), rows
+    return ddate, rows
 
 
 def industry_block(ind, ddate):
-    """一级行业 markdown 块 (行业 | 涨跌% | 成交额)。"""
-    lbl = f"截至 {ddate} 收盘" if (ddate and ddate[0].isdigit()) else "实时·最新收盘"
-    out = [f"**一级行业 涨跌% + 成交额（全部 {len(ind)}，{lbl}，按涨跌降序）**", "",
-           "| 行业 | 涨跌% | 成交额(亿) |", "|---|--:|--:|"]
-    out += [f"| {nm} | {zd:+.1f} | {amt:,.0f} |" for nm, zd, amt in ind]
+    """申万一级 markdown 块 (行业 | 涨跌% | 成交额亿 | PE_TTM | PB | 股息%)。"""
+    lbl = f"截至 {ddate} 收盘" if (ddate and ddate[0].isdigit()) else "最近完整交易日"
+    g = lambda x: "—" if x is None else f"{x:g}"
+    out = [f"**一级行业（申万 {len(ind)}，{lbl}，按涨跌降序；成交额亿元 · PE_TTM/PB/股息为最新静态）**", "",
+           "| 行业 | 涨跌% | 成交额(亿) | PE(TTM) | PB | 股息% |", "|---|--:|--:|--:|--:|--:|"]
+    out += [f"| {nm} | {zd:+.1f} | {amt:,.0f} | {g(pe)} | {g(pb)} | {g(div)} |"
+            for nm, zd, amt, pe, pb, div in ind]
     return "\n".join(out)
 
 
@@ -255,12 +260,12 @@ def collect():
     except Exception as e:
         add("A股", "两融余额", "—", "—", "warn", f"取数失败 {str(e)[:40]}")
 
-    # --- 一级行业 涨跌% + 真实成交额 (同花顺行业指数历史, 失败降级) ---
+    # --- 申万一级 31 行业 涨跌% + 成交额 + 估值 (index_hist_sw 日 K, 失败降级) ---
     try:
         extra["industry_date"], extra["industry"] = fetch_industry()
     except Exception as e:
         extra["industry"] = None
-        warns.append(f"一级行业（同花顺不可达 {str(e)[:24]}）")
+        warns.append(f"申万一级行业（取数失败 {str(e)[:24]}）")
 
     # --- 恒生科技 / 恒生指数 (腾讯港股) ---
     for code, nm in [("hkHSTECH", "恒生科技"), ("hkHSI", "恒生指数")]:
@@ -320,7 +325,7 @@ def render(rows, warns, extra):
     if ind:
         out += [industry_block(ind, extra.get("industry_date", "")), ""]
     elif "industry" in extra:
-        out += ["**一级行业 涨跌% + 成交额**：⚠️ 同花顺不可达，本日未取到", ""]
+        out += ["**一级行业**：⚠️ 申万取数失败，本日未取到", ""]
 
     table("港股", "港股 / 中概层", dcol=False)
     table("隔夜", "隔夜美股层", dcol=False)
@@ -358,8 +363,9 @@ def write_outputs(rows, warns, extra, section_md, today):
 
 
 def backfill_industry(date_str):
-    """回填某历史交易日的一级行业块(真实成交额+涨跌)，就地替换该日节的行业块，不动其它信号；
-    同步更新该日 raw JSON 的 extra.industry / industry_date。"""
+    """回填某 `## date (盘前)` 节的申万一级行业块(涨跌%+成交额+估值)，就地替换，不动其它信号；
+    同步更新该日 raw JSON 的 extra.industry / industry_date。
+    节 D 的大盘/成交额/行业为 D 当日收盘同源快照（两融 T+1 滞后一日属正常），故取 target=D。"""
     d = datetime.date.fromisoformat(date_str)
     ddate, ind = fetch_industry(target=d)
     if not ind:
