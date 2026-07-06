@@ -681,3 +681,14 @@
 - **过程纠错（如实记录）**：答"核心营收来自什么产品"时曾在对话中称已订正 §一 产品结构，实际当时**未执行 Edit**（只在文字描述）；本轮 Read 复核发现后**实际补做** Edit。教训：'claimed done ≠ actually done'，写入类操作必须以 Edit 成功回执为准，不能凭叙述认定完成。
 - **未 commit**：待用户发话
 - **执行**：claude-code/opus-4.8
+
+## 2026-07-04 SCHEDULED-INGEST：daily-market 一级行业改申万口径 + 行业轮动图表 + launchd 定时（3 commit：537f1d2/f45a22c/7348a60）
+
+- **触发**：由"优优yoyo 访谈"评估申万一级 vs 每日任务同花顺行业口径 → 改口径 → 回填 7 月 → 做归一化轮动折线图 → 加二级模式 + 定时拉数
+- **产出（分支 feat/sw-industry-rotation）**：
+  - `537f1d2` daily-market 一级行业 同花顺 90 → 申万一级 31（`index_hist_sw` 日 K + `sw_index_first_info` 估值），日度与回填统一路径；`docs/daily-ingest-plan.md` 同步 + 修正"真·申万一级无日频资金"过时结论
+  - `f45a22c` 7 月 07-01/02 回填申万口径 + 新建 07-03 节（✓8/⚠️0）；修正原 07-01 行业块日期错标（节 D=当日收盘、target=D）
+  - `7348a60` `fetch_sw_indices.py`（申万一级 31 + 二级 123 收盘缓存，滚动 150 日）+ `chart_industry_rotation.py`（自包含交互 HTML，一级/二级双模式，归一化累计涨幅，搜索/前 N 强/悬停十字线）+ `refresh_rotation.sh` + launchd plist（工作日 15:40 盘后）
+- **核心发现**：申万一级掩盖内部分化——建材 +43% 全靠玻璃玻纤 +174%（电子布/AI 服务器 PCB），机械 +22% 靠自动化设备 +51%（机器人），而水泥 −21%/工程机械 −10% 在跌。二级模式把跨一级的 AI 硬件链（玻纤/半导体/元件/通信设备/自动化）排一起看。
+- **数据纪律**：机械型取数（`index_hist_sw` 申万宏源指数日 K，成交额亿元 Σ31≈全市场、已对齐腾讯总额）。journal 回填经跨源一致性核对（Σ成交额 vs 头条读数 3.65/3.42/3.17≈3.66/3.45/3.18、涨跌方向 vs 真实上证与电子·通信、raw 收盘序列交叉）；非判断型个股数字，未走 L3 subagent。图表脚本经 Playwright 无头 Chromium 双模式/搜索/前 N 强回归，零 JS 报错。缓存/HTML 落 ~/Downloads/invest-charts（仓库外，不入 git）。
+- **执行**：claude-code/opus-4.8
