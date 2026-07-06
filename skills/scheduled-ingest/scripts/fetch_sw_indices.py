@@ -10,11 +10,36 @@
 用法: python3 fetch_sw_indices.py [--days 150] [--out PATH]
 默认 out=~/Downloads/invest-charts/sw_close.csv (仓库外, 不入 git)
 """
-import warnings, io, csv, argparse, pathlib, datetime
+import warnings, io, csv, argparse, pathlib, datetime, urllib.request
 from contextlib import redirect_stderr
 warnings.filterwarnings("ignore")
 
 DEFAULT_OUT = "~/Downloads/invest-charts/sw_close.csv"
+
+
+def _tencent_today():
+    """腾讯上证时间戳 → (交易日 'YYYY-MM-DD', 是否已收盘)。失败→(None, False)。"""
+    try:
+        req = urllib.request.Request("http://qt.gtimg.cn/q=sh000001", headers={"User-Agent": "Mozilla/5.0"})
+        ts = urllib.request.urlopen(req, timeout=15).read().decode("gbk", "ignore").split('"')[1].split("~")[30]
+        return f"{ts[:4]}-{ts[4:6]}-{ts[6:8]}", ts[8:14] >= "150000"
+    except Exception:
+        return None, False
+
+
+def _realtime_closes():
+    """index_realtime_sw 一级+二级 → {6位代码: 最新价}, 补 hist 尚未发布的当日收盘。"""
+    import akshare as ak
+    out = {}
+    for sym in ("一级行业", "二级行业"):
+        try:
+            with redirect_stderr(io.StringIO()):
+                df = ak.index_realtime_sw(symbol=sym)
+            for _, r in df.iterrows():
+                out[str(r["指数代码"])] = round(float(r["最新价"]), 2)
+        except Exception:
+            pass
+    return out
 
 
 def pull(days):
@@ -43,6 +68,15 @@ def pull(days):
                 time.sleep(0.3)
         if not ok:
             fails.append(code)
+    # 当日收盘补丁: index_hist_sw 的当日 EOD 日 K 发布滞后(实测 20:30 仍无当日),
+    # 若今日为交易日、已收盘、且晚于 hist 末日, 用 index_realtime_sw 最新价补当日一根。
+    hist_last = max((r[0] for r in rows), default="")
+    tdate, closed = _tencent_today()
+    if tdate and closed and tdate > hist_last:
+        rt = _realtime_closes()
+        for code, name, level, parent in meta:
+            if code in rt:
+                rows.append((tdate, code, name, level, parent, rt[code]))
     # 按 L1(31 个干净指数)最近 days 交易日裁窗 —— 停更的冷门二级(数据停在旧日期)自然出局
     l1_dates = sorted({r[0] for r in rows if r[3] == 1})   # r=(date,code,name,level,parent,close)
     start = l1_dates[-days] if len(l1_dates) >= days else (l1_dates[0] if l1_dates else "")
