@@ -14,7 +14,7 @@ import warnings, io, csv, argparse, pathlib, datetime, urllib.request
 from contextlib import redirect_stderr
 warnings.filterwarnings("ignore")
 
-DEFAULT_OUT = "~/Downloads/invest-charts/sw_close.csv"
+DEFAULT_OUT = "~/.invest-charts/sw_close.csv"   # 非 TCC 保护目录(Downloads 下 launchd 无写权限)
 
 
 def _tencent_today():

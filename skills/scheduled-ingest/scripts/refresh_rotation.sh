@@ -3,7 +3,7 @@
 # launchd 不读 shell profile, 故 python 用绝对路径(带 akshare 的 homebrew python)。
 PY=/opt/homebrew/bin/python3
 DIR="$(cd "$(dirname "$0")" && pwd)"
-OUT="$HOME/Downloads/invest-charts"
+OUT="$HOME/.invest-charts"   # 非 TCC 保护目录(Downloads 下 launchd 代理无写权限)
 mkdir -p "$OUT"
 LOG="$OUT/refresh.log"
 {

@@ -15,8 +15,8 @@ import warnings, io, sys, json, csv, pathlib, argparse
 from contextlib import redirect_stderr
 warnings.filterwarnings("ignore")
 
-DEFAULT_CACHE = "~/Downloads/invest-charts/sw_close.csv"
-DEFAULT_OUTDIR = "~/Downloads/invest-charts"
+DEFAULT_CACHE = "~/.invest-charts/sw_close.csv"   # 非 TCC 保护目录(Downloads 下 launchd 无写权限)
+DEFAULT_OUTDIR = "~/.invest-charts"
 
 
 def ensure_cache(path, days):

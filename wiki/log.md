@@ -695,6 +695,7 @@
 - **数据纪律**：机械型取数（`index_hist_sw` 申万宏源指数日 K，成交额亿元 Σ31≈全市场、已对齐腾讯总额）。journal 回填经跨源一致性核对（Σ成交额 vs 头条读数 3.65/3.42/3.17≈3.66/3.45/3.18、涨跌方向 vs 真实上证与电子·通信、raw 收盘序列交叉）；非判断型个股数字，未走 L3 subagent。图表脚本经 Playwright 无头 Chromium 双模式/搜索/前 N 强回归，零 JS 报错。缓存/HTML 落 ~/Downloads/invest-charts（仓库外，不入 git）。
 - **追加修复（2026-07-06）**：实测 07-06 已收盘但 `index_hist_sw` 当晚 20:30 仍无当日 EOD 日 K → 原「15:40 定时 + 仅 hist」对当日永远慢一天。修：`fetch_sw_indices` 加**当日收盘补丁**（今日交易 + 已收盘 + 晚于 hist 末日 → `index_realtime_sw` 最新价补当日一根），plist 定时 **15:40 → 16:00**（收盘结算后）。验证 07-06 补齐（一级 31/31 + 二级 124/124 覆盖当日）。
 - **定时激活（2026-07-07）**：定时点按用户定为**工作日 15:15**（realtime 补丁下收盘 15 分钟即定格当日收盘），plist 16:00 → 15:15；`cp` 到 `~/Library/LaunchAgents/` + `launchctl bootstrap gui/$(id -u)` 已加载激活（`launchctl list` 可见，首次触发次工作日 15:15）。数据更新至 2026-07-07。
+- **修定时静默失败（2026-07-10）**：`launchctl list` 显示 07-08/09/10 每日 15:15 都触发但 **exit 1** —— `~/Downloads` 是 macOS **TCC 保护目录**，launchd 代理无写权限（终端手动跑有授权故一直没暴露，数据卡在上次手动的 07-07）。修：输出目录 `~/Downloads/invest-charts` → **`~/.invest-charts`**（非 TCC，launchd 可写），`fetch_sw_indices`/`chart_industry_rotation`/`refresh_rotation.sh`/plist 4 处路径同改。`launchctl kickstart` 验证新目录下正常跑（PID 存活、无 Operation not permitted）。数据更新至 07-10。
 - **执行**：claude-code/opus-4.8
 
 ## 2026-07-07 VALUE-INVEST 海螺水泥 600585 v1.2 重估（现价 17.0 跌破买入价×0.85 触发）
@@ -708,3 +709,32 @@
 - **L3**：spawn general-purpose(sonnet) 零上下文校验 → **17✓ / 1⚠️ / 0✗**。⚠️ 为 PB 阶梯表 17.2 vs 锚点 17 显示精度（非事实错），已加口径 note 消解。subagent 独立跑 fetch_data.py + 直接 WebFetch 两个行业 URL 逐字核对，全部计算链一致；重点扫 v1.1 曾出的多版本口径并存 → 确认 v1.2 无 live 冲突（残余 394/672 均正确归入历史 changelog）。校验通过（扫描 17 项）。
 - **未 commit**：待用户发话（工作区另有他 agent 的 7/7 periodic-review 未提交，本次 commit 仅纳入海螺相关文件，不触碰其残留）。
 - **执行**：claude-code/opus-4.8
+
+## 2026-07-08 AI硬件追踪刷新（变量④存储为主，2026-06-23→07-08）
+
+- **触发**：用户「刷新一下 AI硬件追踪，好久没更新了」（上次 06-23 重构后两周半）。高时效衰减域（HBM/AI 算力），L1/L2/L3 全跑、无豁免。
+- **核心更新（变量④ 存储/HBM）**：① 合约价续涨无见顶——Jefferies DRAM/NAND Q3 +40-50% QoQ、Q4 +30-40%、2027 +40-45% YoY、2028 前无缓解；TrendForce HBM 2027 翻倍级、占三大厂 DRAM wafer input 18/22/30%(25/26/27末)。② 存储厂创纪录利润印证周期未见顶——三星 Q2'26 营业利润 89.4 万亿₩/$58.5B 首超 NVIDIA 成全球最赚钱公司；美光 Q3 $22B 长约、毛利创纪录。③ **背离进一步验证**：存储双雄 7/2 暴跌（三星 −9.1%/SK 海力士 −14.6% [自算 yfinance]）、自峰值 −23%/−29% 但 YTD +116%/+207% = 仓位/获利了结、非合约价拐点；硬信号（合约价转跌）仍未触发。
+- **联动**：与本会话前半段「KOSPI vs 港互联网背离」同源——韩国 AI 硬件（三星/SK 海力士）拥挤交易回吐，港互联网属另一因子；日频仍弱正相关（+0.2），非"同一批资金腾挪"。
+- **其他**：变量③ capex 上修 ~$725B（微软领升 ~$190B）+ [定性] 债务融资/客户集中（Oracle×OpenAI）关注；六大变量表 + 五信号 2/3/4 + 综合预警刷新（🟡 维持，风险从"基本面"移向"仓位/估值"）。
+- **数据纪律**：L2 阶段 A 清单对话内可见（7 组）；阶段 B 逐条 WebFetch（TrendForce/KED/AL Capital/ghacks-Jefferies ✅）；CNBC 403 → 股价改 [自算] yfinance（与 CNBC −9.06%/−14.57% 交叉一致）；Micron 一手 IR socket 断 + 二手营收/毛利冲突 → 具体值不采、改用已核 $22B 长约。
+- **L3**：spawn general-purpose(sonnet) 零上下文 → **9✓ / 0✗ / 2⚠️**。yfinance 自算三项股价逐位吻合（三星 7/2 −9.06%/YTD +116.40%/峰值回撤 −23.45%，峰值日精确命中）。2⚠️ 均引用精度/呈现同步（+81% 一手 URL 应挂 TrendForce 20260601 且口径=行业营收；信号 3 capex 未同步 $725B）→ 已修，净 0✗0⚠️。校验通过（扫描 11 项）。
+- **未 commit**：待用户发话。本次改动 = `wiki/macro/AI硬件追踪.md` + `raw/articles/market/hk-liquidity/2026-07-08.json`（早先「刷港股信号」脚本产出，HKMA 当日缺数、另两灯 🟢/🟢）。
+- **执行**：claude-code/opus-4.8
+
+## 2026-07-10 INGEST auto-monthly-sales
+
+- INGEST 2026-06 完成（raw: `raw/articles/sectors/汽车/2026-06_车企销量月度_懂车帝_yoy.md`，37KB）
+- 关键信号：
+  - 全市场: 1,610,812 辆, 同比 -18.8%（May 152.2万/-16.7% → June 161.1万/-18.8%，环比回升但 yoy 走弱）
+  - Top 1 OEM: 比亚迪集团 224,435, 同比 -30.9%, 市占率 13.9%（**首次单月 yoy 破 -30%**，May -22.8% → 观察 7 月是否连续，暂不触发重估）
+  - 关注新势力（全部 yoy 正增，逆市抢份额）: 零跑 +63.2%↑ / 小米 +36.4%↑ / 理想 +7.6%↑ / 小鹏 +5.7%↑ / 蔚来集团 +63.1%↑
+- 信号: 丰田 排名 第6 → 第3（入 Top 5，MoM +15.8% 至 104,251，yoy 仍 -19.3%，升幅主要来自相对/季节）；上汽集团 排名 第3 → 第6（出 Top 5，MoM -11.5% 至 86,895）
+- L1 自检: 通过（5/5）
+  - API fallback: 比亚迪集团 224,435 ≠ May 207,238（+8.3% MoM）→ 真实更新，非 fallback ✓
+  - 全市场量级 161.1万辆（阈值 80-200万）✓ ｜ 比亚迪集团 22.4万（阈值 8-30万）✓
+  - 关注品牌覆盖 51/54 = 94.4%（缺 上汽乘用车/奇瑞星途/赛力斯，均归口父/兄弟品牌，非真缺失，无需改 OEM_PARENT_MAP）✓
+  - 单车型同比 >±1000% 已自动 cap（MG4）✓
+- 无 value-invest 重估触发（无 focus 新势力连续 2 月 -30%+）；全市场 yoy -18.8% 未破 -20%，无行业拐点信号
+- L3: 豁免（公开榜单 + 多源稳定 + 不动估值锚，按 runbook §校验级别）
+- 未 commit：raw + log.md 留 working tree 等用户确认（工作区另有他 agent 的 7/8 AI硬件追踪 + hk-liquidity 未提交残留，本次不触碰）
+- **执行**：claude-code/opus-4.8（scheduled auto-monthly-sales cron）
