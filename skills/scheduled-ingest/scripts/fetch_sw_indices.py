@@ -10,9 +10,10 @@
 用法: python3 fetch_sw_indices.py [--days 150] [--out PATH]
 默认 out=~/Downloads/invest-charts/sw_close.csv (仓库外, 不入 git)
 """
-import warnings, io, csv, argparse, pathlib, datetime, urllib.request
+import warnings, io, csv, argparse, pathlib, datetime, urllib.request, socket
 from contextlib import redirect_stderr
 warnings.filterwarnings("ignore")
+socket.setdefaulttimeout(30)   # 限时: 慢接口不再无限挂(与 fetch_daily_market 一致)
 
 DEFAULT_OUT = "~/.invest-charts/sw_close.csv"   # 非 TCC 保护目录(Downloads 下 launchd 无写权限)
 
