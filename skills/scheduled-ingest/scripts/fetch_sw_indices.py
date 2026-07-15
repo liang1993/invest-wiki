@@ -28,29 +28,56 @@ def _tencent_today():
         return None, False
 
 
-def _realtime_closes():
-    """index_realtime_sw 一级+二级 → {6位代码: 最新价}, 补 hist 尚未发布的当日收盘。"""
-    import akshare as ak
+def _realtime_closes(retries=2):
+    """index_realtime_sw 一级+二级 → {6位代码: 最新价}, 补 hist 尚未发布的当日收盘。
+    带重试: 该接口间歇性 KeyError 'data'。"""
+    import akshare as ak, time
     out = {}
     for sym in ("一级行业", "二级行业"):
-        try:
-            with redirect_stderr(io.StringIO()):
-                df = ak.index_realtime_sw(symbol=sym)
-            for _, r in df.iterrows():
-                out[str(r["指数代码"])] = round(float(r["最新价"]), 2)
-        except Exception:
-            pass
+        for _ in range(retries):
+            try:
+                with redirect_stderr(io.StringIO()):
+                    df = ak.index_realtime_sw(symbol=sym)
+                for _, r in df.iterrows():
+                    out[str(r["指数代码"])] = round(float(r["最新价"]), 2)
+                break
+            except Exception:
+                time.sleep(1)
     return out
 
 
-def pull(days):
-    """→ (rows[(date,code,name,level,parent,close)], fails[code], n_total)。"""
-    import akshare as ak, time
-    with redirect_stderr(io.StringIO()):
-        s1 = ak.sw_index_first_info()
-        s2 = ak.sw_index_second_info()
-    meta = [(str(r["行业代码"]).split(".")[0], str(r["行业名称"]), 1, "") for _, r in s1.iterrows()]
-    meta += [(str(r["行业代码"]).split(".")[0], str(r["行业名称"]), 2, str(r["上级行业"])) for _, r in s2.iterrows()]
+def _load_existing(path):
+    """读已有缓存 CSV → (rows, 最大日期)。无/坏 → ([], "")。"""
+    if not path:
+        return [], ""
+    p = pathlib.Path(path).expanduser()
+    if not p.exists():
+        return [], ""
+    try:
+        rows = []
+        with p.open(encoding="utf-8") as f:
+            rd = csv.reader(f)
+            next(rd, None)
+            for d, code, name, lv, parent, close in rd:
+                rows.append((d, code, name, int(lv), parent, float(close)))
+        return rows, max((x[0] for x in rows), default="")
+    except Exception:
+        return [], ""
+
+
+def _ref_last(ak):
+    """参考指数(农林牧渔 801010)hist 末日 —— 判 hist 是否已出新一天。1 call。"""
+    try:
+        with redirect_stderr(io.StringIO()):
+            h = ak.index_hist_sw(symbol="801010", period="day")
+        return str(h["日期"].iloc[-1])[:10]
+    except Exception:
+        return ""
+
+
+def _full_pull(ak, meta, days):
+    """逐指数 index_hist_sw 取最近 days 根收盘 → (rows, fails)。"""
+    import time
     rows, fails = [], []
     for code, name, level, parent in meta:
         ok = False
@@ -69,20 +96,45 @@ def pull(days):
                 time.sleep(0.3)
         if not ok:
             fails.append(code)
-    # 当日收盘补丁: index_hist_sw 的当日 EOD 日 K 发布滞后(实测 20:30 仍无当日),
-    # 若今日为交易日、已收盘、且晚于 hist 末日, 用 index_realtime_sw 最新价补当日一根。
-    hist_last = max((r[0] for r in rows), default="")
+    return rows, fails
+
+
+def pull(days, cache_path=None):
+    """→ (rows, fails, n_total, mode)。
+    增量: 参考指数 hist 未出新一天 → 复用缓存, 只补当日 realtime; 否则全量拉 162 条。
+    降级/当日重跑时避免几十分钟的全量重拉。"""
+    import akshare as ak
+    cached, cache_max = _load_existing(cache_path)
+    ref_last = _ref_last(ak)
+    if cached and ref_last and ref_last <= cache_max:
+        rows = list(cached)
+        meta = sorted({(r[1], r[2], r[3], r[4]) for r in cached})   # 从缓存派生, 省 info 调用
+        fails, mode = [], f"增量(hist 未出新, 复用缓存至 {cache_max})"
+    else:
+        with redirect_stderr(io.StringIO()):
+            s1 = ak.sw_index_first_info()
+            s2 = ak.sw_index_second_info()
+        meta = [(str(r["行业代码"]).split(".")[0], str(r["行业名称"]), 1, "") for _, r in s1.iterrows()]
+        meta += [(str(r["行业代码"]).split(".")[0], str(r["行业名称"]), 2, str(r["上级行业"])) for _, r in s2.iterrows()]
+        rows, fails = _full_pull(ak, meta, days)
+        mode = "全量拉取"
+    # 当日收盘补丁(realtime 带重试): 今日交易 + 已收盘 + 晚于现有末日
+    cur_max = max((r[0] for r in rows), default="")
     tdate, closed = _tencent_today()
-    if tdate and closed and tdate > hist_last:
+    if tdate and closed and tdate > cur_max:
         rt = _realtime_closes()
-        for code, name, level, parent in meta:
-            if code in rt:
-                rows.append((tdate, code, name, level, parent, rt[code]))
-    # 按 L1(31 个干净指数)最近 days 交易日裁窗 —— 停更的冷门二级(数据停在旧日期)自然出局
-    l1_dates = sorted({r[0] for r in rows if r[3] == 1})   # r=(date,code,name,level,parent,close)
+        if rt:
+            for code, name, level, parent in meta:
+                if code in rt:
+                    rows.append((tdate, code, name, level, parent, rt[code]))
+            mode += f" + realtime 补 {tdate}"
+        else:
+            mode += f" + realtime 未通(留待次日 hist)"
+    # 裁窗(L1 最近 days 交易日; 停更冷门二级自然出局)
+    l1_dates = sorted({r[0] for r in rows if r[3] == 1})
     start = l1_dates[-days] if len(l1_dates) >= days else (l1_dates[0] if l1_dates else "")
     rows = [r for r in rows if r[0] >= start]
-    return rows, fails, len(meta)
+    return rows, fails, len(meta), mode
 
 
 def write_cache(rows, out):
@@ -103,12 +155,12 @@ if __name__ == "__main__":
     ap.add_argument("--out", default=DEFAULT_OUT)
     a = ap.parse_args()
     t0 = datetime.datetime.now()
-    rows, fails, n = pull(a.days)
+    rows, fails, n, mode = pull(a.days, cache_path=a.out)
     if not rows:
         raise SystemExit("✗ 无数据, 缓存未写(检查 akshare 可达性)")
     out = write_cache(rows, a.out)
     dates = sorted(set(r[0] for r in rows))
     dt = (datetime.datetime.now() - t0).total_seconds()
-    print(f"✅ 缓存 {out}  [{dt:.0f}s]")
+    print(f"✅ 缓存 {out}  [{dt:.0f}s | {mode}]")
     print(f"   {n} 指数(成功 {n - len(fails)}, 失败 {len(fails)}{': ' + str(fails) if fails else ''}) "
           f"× {len(dates)} 交易日 ({dates[0]}→{dates[-1]}), {len(rows)} 行")

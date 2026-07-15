@@ -24,7 +24,7 @@ def ensure_cache(path, days):
     if not p.exists():
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
         import fetch_sw_indices as fsi
-        rows, _, _ = fsi.pull(days)
+        rows, *_ = fsi.pull(days, cache_path=str(p))
         fsi.write_cache(rows, p)
     return p
 
