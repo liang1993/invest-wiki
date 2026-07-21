@@ -65,6 +65,38 @@ def _load_existing(path):
         return [], ""
 
 
+def _last_full(path):
+    """上次全量拉取日期(sidecar)。无 → ""。"""
+    if not path:
+        return ""
+    try:
+        return pathlib.Path(path).expanduser().with_name(".last_full").read_text().strip()
+    except Exception:
+        return ""
+
+
+def _mark_full(path):
+    if path:
+        try:
+            pathlib.Path(path).expanduser().with_name(".last_full").write_text(
+                datetime.date.today().isoformat())
+        except Exception:
+            pass
+
+
+def _full_stale(path, max_age=7):
+    """距上次全量是否已超 max_age 天(或从未全量)。
+    必要性: realtime 补当日使缓存恒比 hist 快一天 → 增量判据恒真 → 永不全量;
+    需周期性全量来复核 realtime 值、补历史洞、发现申万新增/调整行业。"""
+    lf = _last_full(path)
+    if not lf:
+        return True
+    try:
+        return (datetime.date.today() - datetime.date.fromisoformat(lf)).days >= max_age
+    except Exception:
+        return True
+
+
 def _ref_last(ak):
     """参考指数(农林牧渔 801010)hist 末日 —— 判 hist 是否已出新一天。1 call。"""
     try:
@@ -106,7 +138,8 @@ def pull(days, cache_path=None):
     import akshare as ak
     cached, cache_max = _load_existing(cache_path)
     ref_last = _ref_last(ak)
-    if cached and ref_last and ref_last <= cache_max:
+    stale = _full_stale(cache_path)
+    if cached and ref_last and ref_last <= cache_max and not stale:
         rows = list(cached)
         meta = sorted({(r[1], r[2], r[3], r[4]) for r in cached})   # 从缓存派生, 省 info 调用
         fails, mode = [], f"增量(hist 未出新, 复用缓存至 {cache_max})"
@@ -117,19 +150,23 @@ def pull(days, cache_path=None):
         meta = [(str(r["行业代码"]).split(".")[0], str(r["行业名称"]), 1, "") for _, r in s1.iterrows()]
         meta += [(str(r["行业代码"]).split(".")[0], str(r["行业名称"]), 2, str(r["上级行业"])) for _, r in s2.iterrows()]
         rows, fails = _full_pull(ak, meta, days)
-        mode = "全量拉取"
+        _mark_full(cache_path)
+        mode = "全量拉取" + ("(距上次全量≥7天, 强制)" if stale and cached else "")
     # 当日收盘补丁(realtime 带重试): 今日交易 + 已收盘 + 晚于现有末日
     cur_max = max((r[0] for r in rows), default="")
     tdate, closed = _tencent_today()
     if tdate and closed and tdate > cur_max:
         rt = _realtime_closes()
-        if rt:
+        hit = sum(1 for m in meta if m[0] in rt)
+        # 全有或全无: 覆盖不足(如只回了一级)则整天不补 —— 半补会让缺席序列在图表里被
+        # "需覆盖全部日期"规则整体剔除, 且增量模式下永不回来(2026-07-20/21 二级全灭教训)
+        if rt and hit >= len(meta) * 0.95:
             for code, name, level, parent in meta:
                 if code in rt:
                     rows.append((tdate, code, name, level, parent, rt[code]))
             mode += f" + realtime 补 {tdate}"
         else:
-            mode += f" + realtime 未通(留待次日 hist)"
+            mode += f" + realtime 覆盖不足({hit}/{len(meta)}) 整天不补 {tdate}"
     # 裁窗(L1 最近 days 交易日; 停更冷门二级自然出局)
     l1_dates = sorted({r[0] for r in rows if r[3] == 1})
     start = l1_dates[-days] if len(l1_dates) >= days else (l1_dates[0] if l1_dates else "")
