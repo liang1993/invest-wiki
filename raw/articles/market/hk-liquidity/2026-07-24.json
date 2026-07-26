@@ -1,0 +1,232 @@
+{
+ "date": "2026-07-24",
+ "missing": [],
+ "sources": {
+  "HKMA": "HKMA Open API daily-figures-interbank-liquidity [观测]",
+  "SOFR": "NY Fed markets API sofr [观测]",
+  "USDHKD": "新浪 fx_susdhkd [观测·转发源]",
+  "成交/卖空": "HKEX dayquot（近 5 交易日）[观测]",
+  "VHSI": "腾讯 hkVHSI [观测·转发源]",
+  "南向": "东财 hsgt_hist_em 沪+深成交净买额 [观测·转发源]",
+  "AH溢价": "东财 push2 100.HSAHP [观测·转发源]"
+ },
+ "hkma": {
+  "date": "2026-07-23",
+  "closing_balance_yi": 539.34,
+  "hibor_on": 2.23,
+  "hibor_1m": 2.7147,
+  "base_rate": 4,
+  "market_activities": "+0"
+ },
+ "sofr": {
+  "date": "2026-07-22",
+  "rate": 3.62
+ },
+ "fx": {
+  "price": 7.8416,
+  "date": "2026-07-24",
+  "band_pos_pct": 91.6
+ },
+ "dayquot": [
+  {
+   "date": "2026-07-23",
+   "turnover_yi": 2334.8,
+   "short_pct_ex_etp": 12,
+   "short_pct_all": 19
+  },
+  {
+   "date": "2026-07-22",
+   "turnover_yi": 3127.6,
+   "short_pct_ex_etp": 13,
+   "short_pct_all": 22
+  },
+  {
+   "date": "2026-07-21",
+   "turnover_yi": 2899.4,
+   "short_pct_ex_etp": 12,
+   "short_pct_all": 15
+  },
+  {
+   "date": "2026-07-20",
+   "turnover_yi": 3064.1,
+   "short_pct_ex_etp": 12,
+   "short_pct_all": 20
+  },
+  {
+   "date": "2026-07-17",
+   "turnover_yi": 3473.3,
+   "short_pct_ex_etp": 12,
+   "short_pct_all": 19
+  }
+ ],
+ "vhsi": {
+  "value": 22.21,
+  "date": "2026/07/24 16:00:00",
+  "high_52w": 33.15,
+  "low_52w": 16.35
+ },
+ "ah": {
+  "value": 122.98,
+  "prev_close": 123.61,
+  "ts": 1784880510
+ },
+ "turnover_5d_avg": 2979.8,
+ "turnover_window": "2026-07-17~2026-07-23",
+ "short_ex_etp": 12,
+ "short_all": 19,
+ "sb_5d": 29.8,
+ "sb_prev_5d": 369.8,
+ "sb_daily": [
+  [
+   "2026-07-02",
+   -19.7414
+  ],
+  [
+   "2026-07-03",
+   45.37780000000002
+  ],
+  [
+   "2026-07-06",
+   205.27800000000002
+  ],
+  [
+   "2026-07-07",
+   4.972300000000001
+  ],
+  [
+   "2026-07-08",
+   141.9436
+  ],
+  [
+   "2026-07-09",
+   98.3047
+  ],
+  [
+   "2026-07-10",
+   -59.94540000000001
+  ],
+  [
+   "2026-07-13",
+   90.38419999999999
+  ],
+  [
+   "2026-07-14",
+   109.96880000000002
+  ],
+  [
+   "2026-07-15",
+   133.63729999999998
+  ],
+  [
+   "2026-07-16",
+   50.394800000000004
+  ],
+  [
+   "2026-07-17",
+   -14.5658
+  ],
+  [
+   "2026-07-20",
+   -59.6231
+  ],
+  [
+   "2026-07-21",
+   71.6737
+  ],
+  [
+   "2026-07-22",
+   75.1697
+  ],
+  [
+   "2026-07-23",
+   -42.2612
+  ],
+  [
+   "2026-07-24",
+   -15.18190000000003
+  ]
+ ],
+ "sb_window": "2026-07-20~2026-07-24",
+ "hkma_rows": [
+  {
+   "date": "2026-07-23",
+   "closing_balance_yi": 539.34,
+   "hibor_on": 2.23,
+   "hibor_1m": 2.7147,
+   "base_rate": 4,
+   "market_activities": "+0"
+  },
+  {
+   "date": "2026-07-22",
+   "closing_balance_yi": 539.34,
+   "hibor_on": 2.14,
+   "hibor_1m": 2.67988,
+   "base_rate": 4,
+   "market_activities": "+0"
+  },
+  {
+   "date": "2026-07-21",
+   "closing_balance_yi": 540.56,
+   "hibor_on": 2.17,
+   "hibor_1m": 2.71548,
+   "base_rate": 4,
+   "market_activities": "+0"
+  },
+  {
+   "date": "2026-07-20",
+   "closing_balance_yi": 544.73,
+   "hibor_on": 2.28,
+   "hibor_1m": 2.75,
+   "base_rate": 4,
+   "market_activities": "+0"
+  },
+  {
+   "date": "2026-07-17",
+   "closing_balance_yi": 540.56,
+   "hibor_on": 2.28,
+   "hibor_1m": 2.75,
+   "base_rate": 4,
+   "market_activities": "+0"
+  },
+  {
+   "date": "2026-07-16",
+   "closing_balance_yi": 540.56,
+   "hibor_on": 2.53,
+   "hibor_1m": 2.82821,
+   "base_rate": 4,
+   "market_activities": "+0"
+  },
+  {
+   "date": "2026-07-15",
+   "closing_balance_yi": 540.56,
+   "hibor_on": 2.72,
+   "hibor_1m": 2.83,
+   "base_rate": 4,
+   "market_activities": "+0"
+  },
+  {
+   "date": "2026-07-14",
+   "closing_balance_yi": 540.27,
+   "hibor_on": 2.63,
+   "hibor_1m": 2.73792,
+   "base_rate": 4,
+   "market_activities": "+0"
+  },
+  {
+   "date": "2026-07-13",
+   "closing_balance_yi": 540.27,
+   "hibor_on": 2.49,
+   "hibor_1m": 2.66042,
+   "base_rate": 4,
+   "market_activities": "+0"
+  },
+  {
+   "date": "2026-07-10",
+   "closing_balance_yi": 540.27,
+   "hibor_on": 2.52,
+   "hibor_1m": 2.66113,
+   "base_rate": 4,
+   "market_activities": "+0"
+  }
+ ]
+}
