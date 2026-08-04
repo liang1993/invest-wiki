@@ -14,6 +14,8 @@ import re
 import sys
 import glob
 
+import yaml
+
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 AGENTS = os.path.join(REPO, "AGENTS.md")
 BEGIN = "<!-- skill-index:begin -->"
@@ -27,14 +29,21 @@ def _read(path):
 
 
 def parse_frontmatter(path):
-    """返回 (name, description)。只取 frontmatter 首块的单行字段（SKILL.md 通用格式）。"""
+    """返回 (name, description)。用 YAML 解析 frontmatter 首块。
+
+    不能用正则取字段：description 允许写成带引号的 YAML 字符串（Hermes 侧摄入
+    要求），引号内的 `\\"` 转义靠 `.strip('"')` 剥不掉，会把反斜杠漏进索引表。
+    """
     text = _read(path)
     m = re.match(r"^---\n(.*?)\n---", text, re.S)
-    fm = m.group(1) if m else ""
-    name = re.search(r"^name:\s*(.+?)\s*$", fm, re.M)
-    desc = re.search(r"^description:\s*(.+?)\s*$", fm, re.M)
-    return (name.group(1).strip() if name else None,
-            desc.group(1).strip().strip('"\'') if desc else "")
+    try:
+        fm = yaml.safe_load(m.group(1)) if m else None
+    except yaml.YAMLError as e:
+        print(f"[警告] {path} frontmatter 解析失败：{e}", file=sys.stderr)
+        fm = None
+    if not isinstance(fm, dict):
+        return (None, "")
+    return (fm.get("name"), str(fm.get("description") or ""))
 
 
 def short_trigger(desc):

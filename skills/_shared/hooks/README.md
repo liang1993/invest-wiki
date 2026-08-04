@@ -11,6 +11,7 @@
 | `pre-commit` | git hook | `git commit` | 敏感信息（key/手机/邮箱/身份证/卡号/私钥/密码）→ 阻止提交；**段 C 另对 staged wiki 跑两 lint 的 argv 模式兜底** | **block**（A）+ **warn**（C） |
 | `lint-interval-terms.py` | PostToolUse **+ pre-commit(argv)** | Write/Edit 个股 wiki · commit 时 | 非白名单区间档位（加仓/高估/低估区间）告警 | **warn-only**（exit 1） |
 | `lint-frontmatter.py` | PostToolUse **+ pre-commit(argv)** | Write/Edit wiki 页 · commit 时 | frontmatter 缺 tags/updated 告警 | **warn-only**（exit 1） |
+| `lint-fx-constant.py` | PostToolUse **+ pre-commit(argv)** | Write/Edit wiki 页 · commit 时 | 正文硬编码汇率常量（未标时点 / 已知陈旧值）告警 | **warn-only**（exit 1） |
 
 退出码语义（Claude Code hook）：`0`=通过；`2`=阻断（stderr 回喂 Claude）；其它非 0=非阻断、stderr 提示用户、继续。
 warn-only 用 `exit 1`；grace 期确认零误报后，把对应脚本的 `sys.exit(1)` 改 `sys.exit(2)` 即升为阻断。

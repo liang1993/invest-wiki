@@ -1,6 +1,15 @@
 ---
 name: value-invest
-description: 个人价值投资分析工具。基于护城河、财务质量、行业风险的多模型估值（PE / P/S / DCF / DDM / SOTP），给出合理价 / 买入价 / 减仓价 / 清仓价四档锚点。Use when the user asks to value a stock, evaluate whether it's worth buying, mentions buy/sell anchor on a holding, requests an updated valuation chapter for a focus-list name, or asks "is X stock cheap / expensive". 适用于 A 股和港股的左侧长期投资者。
+description: "个人价值投资分析工具。基于护城河、财务质量、行业风险的多模型估值（PE / P/S / DCF / DDM / SOTP），给出合理价 / 买入价 / 减仓价 / 清仓价四档锚点。Use when the user asks to value a stock, evaluate whether it's worth buying, mentions buy/sell anchor on a holding, requests an updated valuation chapter for a focus-list name, or asks \"is X stock cheap / expensive\". 适用于 A 股和港股的左侧长期投资者。"
+version: 1.0.0
+author: Invest Wiki Team
+license: MIT
+platforms: [linux, macos, windows]
+metadata:
+  hermes:
+    tags: ['finance', 'stocks', 'china', 'a-share', 'valuation', 'value-investing']
+    category: finance-invest
+    related_skills: ['stock-deep-dive', 'a-share-market', 'yahoo-finance', 'value-invest-verify']
 ---
 
 # 价值投资分析 Skill
@@ -60,6 +69,23 @@ python3 scripts/fetch_data.py 0700.HK
 | TTM EPS | 自行计算（不用 yfinance.trailingEps） | — | 见 Step 1.3 |
 
 **为什么 A 股行情不再走 yfinance**：东财 IP 封禁问题暂时不影响 yfinance（Yahoo 是境外源），但 yfinance 在国内访问偶有抖动 + 字段不全（无 PE 动态/静态、无 5 档、无换手）。腾讯接口稳定 5+ 年、HTTP 公开、字段更全，是 A 股快照的最优主源。
+
+### 多币种口径（报表货币 ≠ 交易货币时强制）
+
+腾讯/阿里/美团/小米/网易等港股**以人民币记账、以港币交易**，汇率必然进入估值链。规则：
+
+| 环节 | 用什么货币 |
+|---|---|
+| 建模（营收/利润/EPS/DCF/SOTP） | **报表货币**（这几家 = 人民币） |
+| 四档锚点展示 | **交易货币**（港币，与港股通报价一致） |
+| 换算 | **只在末端做一次**：人民币每股合理价值 × 当日汇率 → 港币锚点 |
+
+取数：`from marketdata import fx; fx.hkd_per_cny()`（外管局/中行官方中间价，方向写死在函数名里）。
+**禁止硬编码汇率常量**——2026-07 三个页面写死 1.08/1.087/0.92，三个值在各自成文当天就已经错约 6%，
+导致港币锚点系统性低估，且数字仍自洽、极难发现。详见 AGENTS.md「多币种口径规则」。
+
+⚠️ **历史 PE/PB 分位是唯一例外**：每期要用当期汇率，**不要用"港币价格 ÷ 自算港币 EPS"回溯**，
+直接取数据商现成的 PE 序列（同 A 股用 baostock `peTTM` 的理由——避免分位反推中位）。
 
 **接口报错处理**：脚本内置 fallback（A 股腾讯失败自动切 yfinance；baostock 失败也切 yfinance），无需手动干预。yfinance 失败再说明并跳过，用已获取数据继续分析。
 
