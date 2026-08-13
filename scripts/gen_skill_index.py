@@ -2,7 +2,7 @@
 """从各 skills/*/SKILL.md frontmatter 生成 AGENTS.md 的 skill 索引块（标记块内）。
 
 给不支持 skill 自动触发的 harness（OpenCode / Hermes Agent / …）当路由表。**单一生成源**
-（避免在 skills/ 目录、.claude 符号链接之外出现第三个手工登记点漂移）。`bootstrap.sh`
+（避免在 skills/ 源目录、各 harness 生成入口之外出现手工登记点漂移）。`bootstrap.sh`
 调用本脚本刷新；幂等——重跑无 diff。
 
 用法：

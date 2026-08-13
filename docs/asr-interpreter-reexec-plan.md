@@ -83,7 +83,7 @@ ensure_interpreter(["funasr", "torch"])
 
 execv 后 argv 保留 → `parse_args()` 重跑一次（在最终解释器里，仅一次）。`check_deps()` 保留不动，作为「自愈也找不到」时的清晰报错出口；顺手在其错误信息里加一句「已尝试自动切换解释器，仍未找到；可设 `INVEST_WIKI_PY` 指定」。
 
-> 注：symlink 兼容——脚本经 `~/.claude/skills/asr/`（目录符号链接）调用时，`os.path.abspath(__file__)` 经目录链接仍落到真实仓库路径，`../../_shared` 成立；execv 传 `sys.argv[0]` 原样即可。
+> 注：多入口兼容——Codex 经 `.agents/skills/asr/` 目录链接调用时会落到真实仓库路径；Claude 的 `.claude/skills/asr/` 是隔离副本，并同步包含 `.claude/skills/_shared/`，两条路径下 `../../_shared` 都成立；execv 传 `sys.argv[0]` 原样即可。
 
 ### fetch.py 接线（只对 Douyin 触发）
 

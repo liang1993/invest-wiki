@@ -5,7 +5,7 @@
 ## 通用克隆清单（每个 harness 都先做）
 
 ```bash
-bash scripts/bootstrap.sh          # ① hooksPath ② .claude/skills 链接 ③ skill 索引 ④ 依赖检查
+bash scripts/bootstrap.sh          # ① hooksPath ② Codex/Claude skills ③ skill 索引 ④ 依赖检查
 ```
 
 然后：
@@ -17,10 +17,17 @@ bash scripts/bootstrap.sh          # ① hooksPath ② .claude/skills 链接 ③
 
 ## 各 harness 小节
 
+### Codex Desktop / CLI / IDE
+
+- 指令：仓库根 `AGENTS.md` 为 SSOT；非 Claude harness 开工前主动读本地 `CLAUDE.local.md`（如存在）。
+- Skills：仓库原生入口 `.agents/skills/`，每个条目链接到 `skills/<name>/` 唯一源；Codex 官方支持 skill 目录符号链接。
+- 同步：新建或修改 skill 后运行 `python3 scripts/sync_skill_entries.py`；用 `python3 scripts/sync_skill_entries.py --check` 做只读校验。
+- 校验：L3/verify 使用 verify-cli（`skills/_shared/verify/run_verify.py`）；若 Codex 环境提供独立 subagent，也须保持 AGENTS.md 规定的零上下文与完成标准。
+
 ### Claude Code（基准）
 
 - 指令：`CLAUDE.md` symlink → `AGENTS.md`，自动加载；`CLAUDE.local.md` 自动加载。
-- Skills：`.claude/skills/`（bootstrap 重建）原生自动触发。
+- Skills：`.claude/skills/`（bootstrap 生成隔离副本）原生自动触发；禁止恢复成指向 `skills/` 真源的目录链接。
 - 写后 hook：`.claude/settings.local.json` 注册 PostToolUse lint（见 [`skills/_shared/hooks/README.md`](../skills/_shared/hooks/README.md)）。
 - 校验：`Agent` 工具原生 spawn（L3 传 `model=sonnet`，value-invest/arbiter 继承 Opus）。
 
@@ -35,7 +42,7 @@ bash scripts/bootstrap.sh          # ① hooksPath ② .claude/skills 链接 ③
 
 ### OpenCode + DeepSeek（备选，接入时再建 `.opencode/`）
 
-> 原生兼容面最大（原生读 `.claude/skills/` 与 `AGENTS.md`，fallback 读 `CLAUDE.md`）。`.opencode/` 入库时再建，当前推迟。
+> 原生兼容面最大（原生读 `.agents/skills/`、`.claude/skills/` 与 `AGENTS.md`，fallback 读 `CLAUDE.md`）。优先使用 `.agents/skills/`；`.opencode/` 入库时再建，当前推迟。
 
 - `.opencode/opencode.json`（key 用环境变量引用，不含明文）：DeepSeek provider（`@ai-sdk/openai-compatible`，参照 [DeepSeek×OpenCode 官方集成](https://api-docs.deepseek.com/guides/agent_integrations/opencode)）+ permission 基线（`git push` / 破坏性 bash / `--no-verify` 设 `ask`）。
 - `.gitignore` **不**加 `.opencode/`（与 `.claude/` 不同：无机器本地 settings，可共享）。
@@ -80,6 +87,8 @@ python3 skills/_shared/eval/smoke_marketdata.py   # 取数接口漂移
 python3 skills/_shared/eval/smoke_webtools.py      # fetch/search/pdf 地板
 python3 skills/_shared/eval/smoke_verify.py        # verify-cli 三模板渲染（dry-run）
 python3 scripts/gen_skill_index.py --check         # skill 索引是否最新
+python3 scripts/sync_skill_entries.py --check      # Codex 链接与 Claude 副本是否完整
+python3 scripts/test_sync_skill_entries.py          # skill 同步破坏性边界回归
 ```
 
 **通过标准**：四项全过 → 才可跑任何写 `wiki/` 的任务（含 ingest / query 回写 / scheduled-ingest 的 wiki 回写段 / wiki-review）；只过 1/3/4 → 限只读 + 不写 wiki 的机械任务（协议 5）。**不存在"机械任务"名义的写入豁免**。

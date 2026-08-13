@@ -11,7 +11,7 @@
 
 ## Skills
 
-skill 位于 `skills/`，通过 `.claude/skills/` 符号链接引用，适时自动调用。新建 skill 默认创建在 `skills/` 并补充符号链接。
+skill 的唯一源位于 `skills/`。Codex 通过仓库内 `.agents/skills/` 符号链接原生发现；Claude Code 使用 `.claude/skills/` 隔离副本，避免同步器沿目录链接误删真实源。新建或修改 skill 后运行 `python3 scripts/sync_skill_entries.py`（或 `bash scripts/bootstrap.sh`）刷新两套入口。
 
 **skill 索引**（给不支持 skill 自动触发的 harness 当路由表；由 [`scripts/gen_skill_index.py`](scripts/gen_skill_index.py) 从各 `SKILL.md` frontmatter 生成，`bootstrap.sh` 刷新，**勿手改标记块内**）：
 
@@ -41,7 +41,7 @@ skill 位于 `skills/`，通过 `.claude/skills/` 符号链接引用，适时自
 
 <!-- skill-index:end -->
 
-> `skills/_shared/` 是跨 skill 共享层（`marketdata` 取数库含 A 股路由唯一来源 `codes.py` / `hooks` git+PostToolUse 钩子 / `eval` smoke 与单测），**非 skill 本身，不建符号链接**；取数与确定性校验逻辑统一放此，由各 skill 脚本 import。详见 [`docs/skill-refactor-plan.md`](docs/skill-refactor-plan.md)。
+> `skills/_shared/` 是跨 skill 共享层（`marketdata` 取数库含 A 股路由唯一来源 `codes.py` / `hooks` git+PostToolUse 钩子 / `eval` smoke 与单测），**非 skill 本身，不建 Codex skill 链接**；Claude 隔离层会复制它，仅用于脚本相对 import。取数与确定性校验逻辑统一放此，由各 skill 脚本 import。详见 [`docs/skill-refactor-plan.md`](docs/skill-refactor-plan.md)。
 
 ## 运行环境与工具映射
 

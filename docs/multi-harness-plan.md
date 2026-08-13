@@ -30,7 +30,7 @@
 | # | 耦合点 | 位置 | 性质 |
 |---|---|---|---|
 | 1 | 指令入口 CLAUDE.md / CLAUDE.local.md | 仓库根 | 仅 Claude Code（及 OpenCode fallback）自动加载 |
-| 2 | skill 入口 `.claude/skills/` 符号链接 | 本地手建（`.claude/` 整目录 gitignore） | Claude Code + OpenCode 认；换机/换 harness 需重建 |
+| 2 | skill 入口 | `.agents/skills/` 为 Codex/OpenCode 链接；`.claude/skills/` 为本地隔离副本 | `skills/` 保持唯一源；bootstrap 幂等同步，避免清理器沿 Claude 目录链接误删源文件 |
 | 3 | 工具名硬编码 WebFetch / WebSearch / Agent / `Read pages=` | 约 130 行、散布 19 个文件（2026-06-10 review 实测，命令见注¹；大头：value-invest-verify 三 md 26 / data-discipline 26 / CLAUDE.md 22 / stock-deep-dive 含 references 24 / periodic-review 17）。另有字面变体 `Read PDF pages=X`（`templates/财报摘要模板.md:164`）与伪代码 `Agent({...})`（verify 三个 md） | 指令语义绑 Claude Code 工具集 |
 | 4 | PostToolUse 两个 lint | `skills/_shared/hooks/lint-*.py`，靠 stdin JSON 取 `tool_input.file_path`（lint-interval-terms.py:28-32） | 逻辑已版控且自包含，仅入参协议绑 Claude Code |
 | 5 | L3 校验 + value-invest-verify + arbiter | CLAUDE.md §L3、`value-invest-verify/SKILL.md`（Agent 工具 spawn，三级仲裁） | 流程绑 Claude Code Agent 工具 |
@@ -47,7 +47,7 @@
 | 能力 | Claude Code | OpenCode | Hermes Agent | 脚本 fallback |
 |---|---|---|---|---|
 | 指令文件 | CLAUDE.md | AGENTS.md，**fallback 读 CLAUDE.md** | AGENTS.md（OpenClaw 系约定） | — |
-| Skills | `.claude/skills/` | **原生读 `.claude/skills/` 及 `.agents/skills/`** | agentskills.io 标准 | AGENTS.md 内 skill 索引表 |
+| Skills | `.claude/skills/` 隔离副本 | **原生读 `.agents/skills/` 及 `.claude/skills/`** | agentskills.io 标准 | AGENTS.md 内 skill 索引表 |
 | 模型 | Anthropic | 任意 OpenAI 兼容（`@ai-sdk/openai-compatible`；DeepSeek 有官方接入文档） | Nous Portal / OpenRouter / 自定义端点 | — |
 | Subagent | Agent 工具 | `.opencode/agent/*.md`（mode: subagent）+ task 工具 | 支持 spawn 隔离 subagent | **verify-cli（Phase 3）** |
 | 写后 hook | PostToolUse | 无原生兼容；JS 插件可挂 | 无同类机制 | **pre-commit 双栈（Phase 4）** |
@@ -150,7 +150,7 @@
 5. **能力分级分工**（建议默认，非强制）：判断型流程（value-invest 估值、ingest 财报解读、macro-ellie 解读）→ 强模型。**机械型 = 不写 `wiki/` 的任务**（行情/宏观取数计算、etf-momentum 快照、verify-cli 驱动、`raw/` 采集落盘）→ 任意通过冒烟 #1/#3 的模型。**注意：scheduled-ingest 的"回写 wiki 静态章节"段与 wiki-review 改写 wiki 正文，均属写入类**——必须通过冒烟 #2 才可跑（B1 修订：堵住"机械任务"名义下的未校验写入旁路）
 6. **状态共享走 repo**：教训、偏好、约定一律落 AGENTS.md / docs/ / log.md，不留在 harness 私有记忆（Claude auto-memory、Hermes 的 MEMORY.md/SOUL.md 体系）。Hermes Agent 的项目级记忆文件若生成在仓库内，加入 `.gitignore`，防止单 harness 私有状态混入共享事实源
 7. **破坏性操作基线**：`git push` / 改写历史 / 批量删除，任何 harness 默认须用户确认；**任何 agent 禁止 `git commit --no-verify`（pre-commit 旁路），仅限用户人工执行**——没有这条，"pre-commit 是唯一强制点"对弱遵循模型不成立（B2）。各 harness 权限机制的对应配置见 Phase 6 接线清单
-- 配套动作 A：AGENTS.md「Skills」章节扩为 skill 索引表（skill 名 + 一句话触发场景），给不支持 skill 自动触发的 harness 当路由表。**由 bootstrap.sh 从各 SKILL.md frontmatter 生成**到 `<!-- skill-index:begin/end -->` 标记块（避免 skills/ 目录、.claude 符号链接之外出现第三个手工登记点漂移）
+- 配套动作 A：AGENTS.md「Skills」章节扩为 skill 索引表（skill 名 + 一句话触发场景），给不支持 skill 自动触发的 harness 当路由表。**由 bootstrap.sh 从各 SKILL.md frontmatter 生成**到 `<!-- skill-index:begin/end -->` 标记块（避免 skills/ 源目录与 harness 入口之外出现第三个手工登记点漂移）
 - 配套动作 B（S6）：**存量 auto-memory 迁移审计**——把 `~/.claude/.../memory/` 现有条目逐条打标四类：①已编码进 repo → 不动；②通用工作纪律 → 迁 AGENTS.md 或对应 SKILL.md；③个人化 → 迁私有层（**不得入公开层**，遵守隐私边界）；④过时 → 弃置。
   **裁定已完成（2026-06-10，19 条全按建议，Phase 5 照此执行、无需再询问）**：
   - ①已编码 5 条不动：远期前瞻（value-invest SKILL.md:563）/ 一阶原因归因（:901）/ 弱周期成长 P/S（:87）/ 数据校验纪律（CLAUDE.md L1-L3）/ 宏观量化月度工作流（macro-quant-rebalance SKILL.md）
@@ -162,11 +162,11 @@
 ### Phase 6 — 薄适配层 + 一键接线
 
 - 动作：
-  1. `scripts/bootstrap.sh`（幂等）：`git config core.hooksPath skills/_shared/hooks`；重建 `.claude/skills/` 符号链接（遍历 `skills/` 排除 `_shared`）；生成/刷新 AGENTS.md skill 索引块；检查 python 依赖（akshare/pandas/pypdf/trafilatura）并提示缺失项——把 README/hooks README 里的"本地接线"从文字变成一条命令
+  1. `scripts/bootstrap.sh`（幂等）：`git config core.hooksPath skills/_shared/hooks`；同步 `.agents/skills/` Codex 链接与 `.claude/skills/` Claude 隔离副本；生成/刷新 AGENTS.md skill 索引块；检查 python 依赖（akshare/pandas/pypdf/trafilatura）并提示缺失项——把 README/hooks README 里的"本地接线"从文字变成一条命令
   2. **Hermes Agent 接线（首选 harness，2026-06-10 用户裁定）**：无仓库内目录需求（home 级配置 + 读 AGENTS.md），接线步骤进文档——provider 指 Nous Portal / OpenRouter / 自定义端点；**harness 与模型解耦：写入类任务建议配 DeepSeek 等中文强模型，Hermes 4 跑校验/机械位**；权限/审批按协议 7 基线（含 `--no-verify` 禁令）；其私有记忆文件（MEMORY.md/SOUL.md 系）若落仓库内则加 `.gitignore`（协议 6）；skill 发现的具体目录约定以冒烟实测为准（agentskills.io 标准）
   3. （可选，接入 OpenCode 时再做）`.opencode/opencode.json` 入库（key 用环境变量引用，不含明文）：DeepSeek provider（`@ai-sdk/openai-compatible`，参照官方集成文档）+ permission 基线：`git push` / 破坏性 bash / `--no-verify` 设 ask（S7：协议 7 的接线落地）；`.gitignore` 不加 `.opencode/`（与 `.claude/` 不同：无机器本地 settings，皆可共享）。OpenCode 原生 verifier subagent（`.opencode/agent/verifier.md`）推迟——verify-cli 是唯一校验路径，实测不够用再加（review 裁定：双路径属过度设计）
   4. `docs/harness-setup.md`：每 harness 克隆后清单（bootstrap.sh → 各家鉴权/模型配置 → `llm.json` → **权限基线核对（协议 7）** → smoke 命令），沿用 hooks README「本地接线」文体
-- 验证：删除 `.claude/skills/` 后跑 bootstrap.sh 完整重建且索引块无 diff；Hermes Agent 会话能发现并调用 repo skills、能复述 AGENTS.md 任一规则；（接入 OpenCode 时）OpenCode 启动列出 15 个 skill、`git push` 触发 ask
+- 验证：`sync_skill_entries.py --check` 通过，bootstrap.sh 可重入且索引块无 diff；Codex 能从 `.agents/skills/` 发现 repo skills；Hermes Agent 会话能发现并调用 repo skills、能复述 AGENTS.md 任一规则；（接入 OpenCode 时）OpenCode 启动列出全部 skill、`git push` 触发 ask
 - 风险：低
 
 ### Phase 7 — 跨 harness 冒烟验收（人工 checklist + 半自动）

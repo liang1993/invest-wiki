@@ -41,7 +41,7 @@
 
 > **不拆的红线**：`value-invest` 的 Step 0→8 是带反向健康检查回环的单一判断链，**不再下切**为子 skill。层间拆（降耦合）对，链内拆（降内聚）错。
 >
-> **`_shared/` 不会被误挂成 skill**：`.claude/skills/` 是**逐个手建**符号链接（无通配），不给 `_shared/` 建 symlink 即不会被当 skill 加载。
+> **`_shared/` 不会被误挂成 skill**：Codex 的 `.agents/skills/` 只为含 `SKILL.md` 的目录建链接；Claude 隔离层虽复制 `_shared/` 供脚本 import，但 `_shared/` 没有 `SKILL.md`，不会被当 skill 加载。
 >
 > 非投资 skill（`asr` / `media-fetch` / `find-skills`）不在本次范围。
 
