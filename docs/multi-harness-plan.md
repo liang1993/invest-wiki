@@ -7,6 +7,8 @@
 > **核心判断**：混用场景下，**所有 agent 共享的只有 git 和文件系统**。因此：强制纪律下沉 git 层（pre-commit 是唯一全 agent 必经的强制点——前提是堵住 `--no-verify` 旁路，见协议 7）；共享状态全部进 repo 文件（AGENTS.md / docs / log.md），不依赖任何 harness 私有记忆；harness 差异收敛到"薄适配层 + 工具映射表"。这是 [`skill-refactor-plan.md`](skill-refactor-plan.md)「Hook 守确定性地板」原则在多 harness 下的自然延伸。
 >
 > **v2 修订（review 后）**：堵住两个地板旁路（机械任务写 wiki 豁免 B1、`--no-verify` 旁路 B2）；verify-cli 补章节定位 / WebFetch 预算 / 完整工具映射（S3）；改写点扩到 value-invest-verify SKILL.md（S4）；worktree 隐私盲区（S5）；存量 memory 迁移审计（S6）；权限接线落 Phase 6（S7）；砍掉 OpenCode 原生 verifier 双路径与 search 多后端抽象（Simplicity）。详见附录 A。
+
+> **2026-08-14 运行路径修订**：L3/verify 改为按能力选择——有合格的原生零上下文 subagent 时优先使用；verify-cli 只在无合格原生能力或明确需要异构模型 / CLI 退出码时使用。下文 Phase 记录中的“非 Claude 必跑 verify-cli”属于原实施背景，以本条和 `AGENTS.md` 当前规则为准。
 >
 > **v2 后增补（2026-06-10，门 1 review 之后）**：校验员选型由单值 `default_verifier` 升级为「异构 × 档位」两轴，新增**按 spawn 点定校验档位**（L3 → 便宜快档 / value-invest · arbiter → 强推理档）——见 Phase 3「校验员选型两轴」。属对既有「异构校验红利」的直接延伸，**未单独过 review 门**，如需可补一轮门 1。
 
@@ -49,7 +51,7 @@
 | 指令文件 | CLAUDE.md | AGENTS.md，**fallback 读 CLAUDE.md** | AGENTS.md（OpenClaw 系约定） | — |
 | Skills | `.claude/skills/` 隔离副本 | **原生读 `.agents/skills/` 及 `.claude/skills/`** | agentskills.io 标准 | AGENTS.md 内 skill 索引表 |
 | 模型 | Anthropic | 任意 OpenAI 兼容（`@ai-sdk/openai-compatible`；DeepSeek 有官方接入文档） | Nous Portal / OpenRouter / 自定义端点 | — |
-| Subagent | Agent 工具 | `.opencode/agent/*.md`（mode: subagent）+ task 工具 | 支持 spawn 隔离 subagent | **verify-cli（Phase 3）** |
+| Subagent | Agent 工具 | `.opencode/agent/*.md`（mode: subagent）+ task 工具 | 支持 spawn 隔离 subagent | 原生零上下文 subagent 优先；**verify-cli fallback（Phase 3）** |
 | 写后 hook | PostToolUse | 无原生兼容；JS 插件可挂 | 无同类机制 | **pre-commit 双栈（Phase 4）** |
 | Web 搜索/抓取 | WebSearch / WebFetch（Anthropic 侧） | 无内置，走 MCP | 内置工具集 + MCP | **webtools（Phase 2）** |
 | PDF 逐页读 | Read pages= | 无保证 | 无保证 | **pdf_text.py（Phase 2）** |
@@ -115,15 +117,15 @@
   - **内置 tool-loop**（4 个 function）+ **完整工具名映射前言**（注入渲染后 prompt 头部，不改模板原文）：`Read → read_file`（限仓库内路径）/ `WebFetch → run_fetch`（webtools fetch.py）/ `WebSearch → run_search`（webtools search.py）/ `Bash 取数脚本 → run_script`（白名单：`skills/_shared/marketdata`、各 skill `scripts/` 只读取数脚本）/ `Grep → 无对应 function，读全文后自行扫描`。映射必须穷举模板中出现的全部工具名，弱模型在"模板指令与可用工具不一致"处最易卡死
   - **预算完整继承现纪律**：L3 模板 search ≤ 10 次（data-discipline.md:124）；value-invest 模板校验 6+7 共享 search 8 次（SKILL.md:233）**且 WebFetch ≤ 3 次（prompt-template.md:228）**；另加 max-steps 总闸防失控
   - **输出契约**：报告 markdown 到 stdout（格式 = 模板既有要求：全 ✓ 只回一行「通过 (扫描 N 项)」；否则列 ✗/⚠️ 项 + 必附 search URL）；退出码 `0`=全✓、`1`=有 ✗/⚠️、`2`=执行失败——主 agent / 脚本可机械判断；`--out <path>` 可选落盘（默认不入库，估值页归档沿用现有 `raw/articles/stocks/<name>/<date>_verify_report.md` 流程，由主 agent 决定）
-- **AGENTS.md L3 规则改写**（Phase 1 动作 B 预留）：「L3 = 零上下文校验。Claude Code 用 Agent 工具；其它 harness 运行 verify-cli。完成标准与失败处理一致（0✗0⚠️ → log 记录后方可 commit），**不得以"本环境没有 subagent 工具"为由跳过 L3**」
+- **AGENTS.md L3 规则（2026-08-14 已再修订）**：「L3 = 零上下文校验。优先原生零上下文 subagent；无合格原生能力或明确需要异构 / CLI 退出码时才运行 verify-cli。完成标准与失败处理一致（0✗0⚠️ → log 记录后方可 commit）。」
 - **校验员选型两轴（异构 × 档位，可叠加）**：
   - **异构轴（误差去相关）**：校验员家族 ≠ 主笔家族（主笔 Claude → 校验 DeepSeek；主笔 DeepSeek → 校验 Claude API/Hermes）。误差不相关，强于同模型自校；也让 Hermes/DeepSeek 在"判断力要求低、独立性要求高"的校验位先上岗。**仅 verify-cli 路径可得**——Claude Code 原生 Agent 工具只能起 Claude 家族，无此红利
   - **档位轴（按 spawn 点匹配推理需求，定档原则 = 频率 × 单次 stakes × 检索/推理比例）**：
     - **L3**：高频（每次写入）、检索/比对为主、第三道兜底 → **便宜快档**（Claude 侧 Sonnet——不建议 Haiku，L3 模板含 10 次 search 预算管理 / 三档来源判定 / 反推链，过弱模型跟随复杂指令易掉链；verify-cli 侧 deepseek-lite 等）
     - **value-invest 校验 + arbiter 仲裁**：低频（建档 / 锚点改 >10% / 分歧仲裁）、推理与召回为主（校验 6/7 漏标会静默溜过、仲裁是最后一道判断）、单次 stakes 高 → **强推理档**（Opus / 强模型），**不降档**
   - **两路径落地**：
-    - **Claude Code 原生**：`Agent` 工具 `model=` 参数——L3 spawn 传 `model: sonnet`，value-invest / arbiter 不传（继承主力 Opus）。此路径**只有档位轴、无异构轴**（同 Claude 家族）；其"误差去相关"靠模板强制 WebSearch 锚定外部真值，不靠模型差异
-    - **verify-cli**：`llm.json` 的 `verifier` map 按 `--template`（l3 / value-invest / arbiter / default）取 backend，可同时叠加异构（选非 Claude 家族）+ 档位（便宜 / 强档分配）
+  - **原生 subagent（优先）**：以零历史上下文启动；Claude Code 的 `Agent` 工具在 L3 传 `model: sonnet`，value-invest / arbiter 不传（继承主力 Opus）；Codex 使用零历史 fork。此路径通常只有档位轴、无异构轴，其“误差去相关”靠模板强制 WebSearch 锚定外部真值。
+  - **verify-cli（fallback）**：仅在无合格原生能力或明确需要异构 / CLI 退出码时使用；`llm.json` 的 `verifier` map 按 `--template`（l3 / value-invest / arbiter / default）取 backend，可同时叠加异构 + 档位。
 - 主 agent 侧仲裁流程（verify SKILL.md Step 3.5 层次 1 回访）不变——那是主 agent 的职责，与校验员实现无关
 - 验证：`--dry-run`（渲染 prompt 不调 API）对三模板各跑一次，人工核对渲染结果与工具映射前言；对一个已通过 Claude L3 的近期页面（如 `wiki/macro/黄金趋势跟踪.md`）用 DeepSeek 后端实跑，对照两份报告的扫描项数与结论方向
 - 风险：中高（本方案最大工作量，约 300 行 + 配置）。模型函数调用质量参差 → budget/max-steps 双闸 + 「无 URL 的判断不可信」规则继承自模板原文；报告质量低于 Claude subagent 时，纪律仍成立（报告必须附可点 URL，主 agent Step 3.5 回访把关）
@@ -143,10 +145,10 @@
 
 > 协议七条 + 两个配套动作。协议引用 verify-cli / webtools，故本 Phase 在 Phase 3 之后执行。
 
-1. **开工自检**：会话开始若 `git status` 不干净，先向用户确认残留归属（可能是另一 agent 的未竟工作），不得擅自 commit / revert / 续写他人未提交内容
+1. **开工自检**：会话开始用 `git status` 识别已有修改；与本任务不重叠时保留并继续，不要仅因工作区不干净就询问用户。只有修改范围重叠、归属不清影响正确合并、或 commit 会夹带他人改动时才确认；不得擅自 commit / revert / 续写无关修改
 2. **产出归属**：每条 `wiki/log.md` 条目末尾加 `- **执行**：<harness>/<model>`（如 `claude-code/fable-5`、`opencode/deepseek-v4`、`hermes-agent/hermes-4-405b`）。价值：数字错误可溯源到产出模型，跨模型质量对比有数据基础。约定起步；后续可升级为 pre-commit 对新增 log 条目做"含执行行"的 warn 检查（列入 hook 候选，与 skill-refactor-plan 附录 B 的 lint-narrative 同队列）
 3. **并发边界**：默认**分时**——同一时刻只有一个 agent 写仓库（`wiki/log.md` 与 `index.md` 是追加热点，同工作区并发必冲突）。确需并行：各开 `git worktree` + 独立分支，由用户合并；禁止两个 agent 共享同一工作区。**worktree 隐私盲区**：gitignore 的 `CLAUDE.local.md` 不会出现在新 worktree——worktree 内 agent 视为**未读隐私指令**，禁止撰写任何涉持仓/金额/个人财务的内容，相关任务回主工作区分时执行
-4. **纪律等价**：L1/L2/L3 的触发范围、豁免梯度、完成标准 harness 无关。L2 阶段 A 清单必须在该 agent 的对话/输出中可见；L3 用 Agent 工具或 verify-cli 二选一，标准同一。**模型弱不构成豁免理由**——恰恰相反，弱模型环境更依赖 pre-commit 地板 + verify-cli 必跑
+4. **纪律等价**：L1/L2/L3 的触发范围、豁免梯度、完成标准 harness 无关。L2 阶段 A 清单必须在该 agent 的对话/输出中可见；L3 优先原生零上下文 subagent，verify-cli 仅作 fallback，标准同一。**模型弱不构成豁免理由**——恰恰相反，弱模型环境更依赖 pre-commit 地板 + L3 必跑
 5. **能力分级分工**（建议默认，非强制）：判断型流程（value-invest 估值、ingest 财报解读、macro-ellie 解读）→ 强模型。**机械型 = 不写 `wiki/` 的任务**（行情/宏观取数计算、etf-momentum 快照、verify-cli 驱动、`raw/` 采集落盘）→ 任意通过冒烟 #1/#3 的模型。**注意：scheduled-ingest 的"回写 wiki 静态章节"段与 wiki-review 改写 wiki 正文，均属写入类**——必须通过冒烟 #2 才可跑（B1 修订：堵住"机械任务"名义下的未校验写入旁路）
 6. **状态共享走 repo**：教训、偏好、约定一律落 AGENTS.md / docs/ / log.md，不留在 harness 私有记忆（Claude auto-memory、Hermes 的 MEMORY.md/SOUL.md 体系）。Hermes Agent 的项目级记忆文件若生成在仓库内，加入 `.gitignore`，防止单 harness 私有状态混入共享事实源
 7. **破坏性操作基线**：`git push` / 改写历史 / 批量删除，任何 harness 默认须用户确认；**任何 agent 禁止 `git commit --no-verify`（pre-commit 旁路），仅限用户人工执行**——没有这条，"pre-commit 是唯一强制点"对弱遵循模型不成立（B2）。各 harness 权限机制的对应配置见 Phase 6 接线清单
@@ -164,7 +166,7 @@
 - 动作：
   1. `scripts/bootstrap.sh`（幂等）：`git config core.hooksPath skills/_shared/hooks`；同步 `.agents/skills/` Codex 链接与 `.claude/skills/` Claude 隔离副本；生成/刷新 AGENTS.md skill 索引块；检查 python 依赖（akshare/pandas/pypdf/trafilatura）并提示缺失项——把 README/hooks README 里的"本地接线"从文字变成一条命令
   2. **Hermes Agent 接线（首选 harness，2026-06-10 用户裁定）**：无仓库内目录需求（home 级配置 + 读 AGENTS.md），接线步骤进文档——provider 指 Nous Portal / OpenRouter / 自定义端点；**harness 与模型解耦：写入类任务建议配 DeepSeek 等中文强模型，Hermes 4 跑校验/机械位**；权限/审批按协议 7 基线（含 `--no-verify` 禁令）；其私有记忆文件（MEMORY.md/SOUL.md 系）若落仓库内则加 `.gitignore`（协议 6）；skill 发现的具体目录约定以冒烟实测为准（agentskills.io 标准）
-  3. （可选，接入 OpenCode 时再做）`.opencode/opencode.json` 入库（key 用环境变量引用，不含明文）：DeepSeek provider（`@ai-sdk/openai-compatible`，参照官方集成文档）+ permission 基线：`git push` / 破坏性 bash / `--no-verify` 设 ask（S7：协议 7 的接线落地）；`.gitignore` 不加 `.opencode/`（与 `.claude/` 不同：无机器本地 settings，皆可共享）。OpenCode 原生 verifier subagent（`.opencode/agent/verifier.md`）推迟——verify-cli 是唯一校验路径，实测不够用再加（review 裁定：双路径属过度设计）
+  3. （可选，接入 OpenCode 时再做）`.opencode/opencode.json` 入库（key 用环境变量引用，不含明文）：DeepSeek provider（`@ai-sdk/openai-compatible`，参照官方集成文档）+ permission 基线：`git push` / 破坏性 bash / `--no-verify` 设 ask（S7：协议 7 的接线落地）；`.gitignore` 不加 `.opencode/`（与 `.claude/` 不同：无机器本地 settings，皆可共享）。若 `task` 工具能提供合格的零上下文校验则优先使用；否则配置 verify-cli fallback。
   4. `docs/harness-setup.md`：每 harness 克隆后清单（bootstrap.sh → 各家鉴权/模型配置 → `llm.json` → **权限基线核对（协议 7）** → smoke 命令），沿用 hooks README「本地接线」文体
 - 验证：`sync_skill_entries.py --check` 通过，bootstrap.sh 可重入且索引块无 diff；Codex 能从 `.agents/skills/` 发现 repo skills；Hermes Agent 会话能发现并调用 repo skills、能复述 AGENTS.md 任一规则；（接入 OpenCode 时）OpenCode 启动列出全部 skill、`git push` 触发 ask
 - 风险：低
@@ -173,10 +175,10 @@
 
 - `docs/harness-setup.md` 附验收四项，每接入一个新 harness 跑一遍：
   1. **只读 query**：问一个 wiki 内可答的问题 → 正确引用页面、零写入
-  2. **微型 ingest**：给一段含 2-3 个数字的样例材料走 L1→L2（清单可见 + fetch 核对）→ 写测试页 → L3（verify-cli）→ 清理。检查点：阶段 A 清单是否可见输出、是否按映射表选对工具
+  2. **微型 ingest**：给一段含 2-3 个数字的样例材料走 L1→L2（清单可见 + fetch 核对）→ 写测试页 → L3（原生零上下文 subagent；无合格原生能力时用 verify-cli）→ 清理。检查点：阶段 A 清单是否可见输出、是否按映射表选对工具
   3. **pre-commit 地板**：staged 敏感行 + 非白名单区间术语 → 前者被拦、后者出警告；**确认 agent 面对拦截的反应是"转给用户"而非尝试 `--no-verify`**
-  4. **verify 对照**：对最近一个 Claude L3 已通过的页面跑 verify-cli（异构后端）→ 报告结论方向与 Claude 版一致（允许覆盖面差异，不允许方向冲突无解释）
-- **通过标准（B1 修订）**：四项全过 → 才可跑**任何写 `wiki/` 的任务**（含 ingest / query 回写 / scheduled-ingest 的 wiki 回写段 / wiki-review）；只过 1/3/4 → 限只读 + 不写 wiki 的机械任务（协议 5 定义）。**不存在"机械任务"名义的写入豁免**
+  4. **verify 对照（仅配置 verify-cli 时）**：对最近一个原生 L3 已通过页面跑 verify-cli（异构后端）→ 报告结论方向与原生版一致（允许覆盖面差异，不允许方向冲突无解释）
+- **通过标准（B1 修订）**：#1–#3 必过；配置 verify-cli 的环境还必须通过 #4。满足对应条件后才可跑**任何写 `wiki/` 的任务**（含 ingest / query 回写 / scheduled-ingest 的 wiki 回写段 / wiki-review）；未过 #2 时限只读 + 不写 wiki 的机械任务（协议 5 定义）。**不存在"机械任务"名义的写入豁免**
 - 工作量预期：每 harness 1-2h 起，弱模型大概率需多轮调试（冒烟 #2 全链最长）
 
 ## 4. 依赖与执行序
@@ -196,7 +198,7 @@ Phase 7 (冒烟验收) ── 最后，逐 harness；#1–#3 通过 = feature �
 | 风险 | 缓解 / 回滚 |
 |---|---|
 | symlink 入口某 harness 不认 | Phase 0 单独 commit；回滚 = 互换真身与链接 |
-| 弱模型不守 L2（清单跳过、摘要替代 fetch） | 地板三件套：pre-commit lint + verify-cli 必跑 + Phase 7 冒烟未过不放权写入（含 B1 堵漏：无机械任务写入豁免）；映射表前置降低翻译失败率 |
+| 弱模型不守 L2（清单跳过、摘要替代 fetch） | 地板三件套：pre-commit lint + L3 必跑 + Phase 7 冒烟未过不放权写入（含 B1 堵漏：无机械任务写入豁免）；映射表前置降低翻译失败率 |
 | agent 自行 `--no-verify` 解除闸门 | 协议 7 红线 + Phase 4 提示语去教学化 + Phase 6 权限 ask + 冒烟 #3 实测反应（B2） |
 | worktree 并行丢失隐私指令 | 协议 3：worktree 内禁写持仓/金额类内容（S5） |
 | 搜索 API 不可达 / 配额（本机代理环境特殊） | Phase 2 smoke 实测；不可达 → 换 Serper/SearXNG（到时实现）；全不可用时该 harness 降级只读+机械任务 |

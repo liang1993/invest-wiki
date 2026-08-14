@@ -191,9 +191,9 @@ L2 触发词表没覆盖的"表达层"问题：
 
 ### L3：数据校验 Agent（事后审计，强制）
 
-主 agent 完成 wiki 写入（阶段 C）后**必须立即**做零上下文事后校验。两条等价路径任选其一，**完成标准与失败处理一致（0✗0⚠️ → log 记录后方可 commit），不得以"本环境没有 subagent 工具"为由跳过 L3**：
-- **Claude Code**：spawn `general-purpose` Agent，**传 `model=sonnet`**（L3 为高频检索/比对型，用便宜快档即可；value-invest 校验 / arbiter 仲裁维持继承主力 Opus，**不降档**）
-- **非 Claude Code harness**：运行 verify-cli —— `python3 skills/_shared/verify/run_verify.py --template l3 --files <wiki…> --sections "<本次新增/修改章节>"`（见[运行环境与工具映射](#运行环境与工具映射)）
+主 agent 完成 wiki 写入（阶段 C）后**必须立即**做零上下文事后校验。按能力选择路径，**不要按 harness 品牌硬编码**；两条路径的完成标准与失败处理一致（0✗0⚠️ → log 记录后方可 commit）：
+1. **优先原生独立 subagent**：只要当前环境能启动不携带主对话历史的全新 agent，并提供读文件、搜索和原文抓取能力，就直接使用。Codex 必须使用零历史 fork（如 `fork_turns="none"`）；Claude Code spawn `general-purpose` Agent，L3 **传 `model=sonnet`**。value-invest 校验 / arbiter 仲裁使用强推理档，不降档。
+2. **verify-cli 仅作 fallback**：仅当没有满足上述条件的原生 subagent，或用户明确要求异构模型 / 可供脚本判断的退出码时运行：`python3 skills/_shared/verify/run_verify.py --template l3 --files <wiki…> --sections "<本次新增/修改章节>"`。调用前先检查 `~/.config/invest-wiki/llm.json` 是否存在；缺配置但原生 subagent 可用时，**不得先调用 verify-cli 制造一次已知失败**，直接走原生路径。若两条路径都不可用，明确报告配置 blocker，不得把失败调用算作已完成 L3。
 
 Prompt 模板见 [`docs/data-discipline.md`](docs/data-discipline.md#数据校验-agent-prompt-模板)。
 
@@ -295,7 +295,7 @@ wiki/
 3. **【财报 PDF 专属】结构化摘要 + 审查** — 按 `templates/财报摘要模板.md` 抽取到 `raw/reports/<公司>_<报告期>.md`（每数据点标 PDF 页码 + 末尾生成核对清单），逐项 `Read pages=X`（非 Claude Code harness 用 `pdf_text.py --pages X`，见[运行环境与工具映射](#运行环境与工具映射)）回读校对，偏差必须修正摘要 md，审查通过后 frontmatter 设 `reviewed: true`。**禁止跳审直接回填 wiki**
 4. **走数据写入纪律 L1 → L2（强制，顺序执行）** — L1 轻量自检 → L2 阶段 A 数据声明清单 → 阶段 B 校验执行 → 阶段 C 写入 wiki。**L2 未完成不可进入 §5**。详见上文「[数据写入纪律](#数据写入纪律强制)」章节
 5. 维护辅助文件 — 交叉引用 / 更新 `index.md` / 更新 `log.md`
-6. **L3：立即触发零上下文数据校验（强制）** — 阶段 C 完成后立即触发，commit 前必跑。Claude Code spawn `general-purpose` Agent（传 `model=sonnet`）；非 Claude Code harness 运行 verify-cli（`run_verify.py --template l3`）。见上文「[数据写入纪律 §L3](#l3数据校验-agent事后审计强制)」
+6. **L3：立即触发零上下文数据校验（强制）** — 阶段 C 完成后立即触发，commit 前必跑。优先使用当前环境的原生零上下文 subagent；没有合格原生能力时才运行 verify-cli。见上文「[数据写入纪律 §L3](#l3数据校验-agent事后审计强制)」
 
 注意：
 - 不删除已有信息，追加或修正
@@ -320,10 +320,10 @@ wiki/
 
 > 适用：多个 agent（不同 harness / 模型）分时或分角色操作同一仓库。所有 agent 共享的只有 git 与文件系统——故约定全部落 repo，纪律等价、产出可溯源。蓝图见 [`docs/multi-harness-plan.md`](docs/multi-harness-plan.md)。
 
-1. **开工自检**：会话开始若 `git status` 不干净，先向用户确认残留归属（可能是另一 agent 的未竟工作），**不得擅自 commit / revert / 续写他人未提交内容**。
+1. **开工自检**：会话开始用 `git status` 识别已有修改。若与本任务文件/行段不重叠，保留并继续，**不要仅因工作区不干净就停下来询问用户**；不得擅自 commit / revert / 续写这些无关修改。只有计划修改的文件或行段发生重叠、归属不清会影响正确合并、或 commit 将不可避免地夹带他人改动时，才向用户确认。
 2. **产出归属**：每条 `wiki/log.md` 条目末尾加 `- **执行**：<harness>/<model>`（如 `claude-code/opus-4.8`、`opencode/deepseek-v4`、`hermes-agent/hermes-4-405b`）——数字错误可溯源到产出模型，跨模型质量对比有据。
 3. **并发边界**：默认**分时**（`wiki/log.md` 与 `index.md` 是追加热点，同工作区并发必冲突）。确需并行：各开 `git worktree` + 独立分支，由用户合并；禁止两 agent 共享同一工作区。**worktree 隐私盲区**：gitignore 的 `CLAUDE.local.md` 不出现在新 worktree——worktree 内 agent 视为**未读隐私指令**，禁止撰写任何涉持仓 / 金额 / 个人财务内容，相关任务回主工作区分时执行。
-4. **纪律等价**：L1/L2/L3 的触发范围、豁免梯度、完成标准 harness 无关。L2 阶段 A 清单必须在该 agent 输出中可见；L3 用 Agent 工具或 verify-cli 二选一，标准同一。**模型弱不构成豁免理由**——弱模型环境更依赖 pre-commit 地板 + verify-cli 必跑。
+4. **纪律等价**：L1/L2/L3 的触发范围、豁免梯度、完成标准 harness 无关。L2 阶段 A 清单必须在该 agent 输出中可见；L3 优先原生零上下文 subagent，verify-cli 仅在无合格原生能力或明确需要异构/退出码时使用，标准同一。**模型弱不构成豁免理由**——弱模型环境更依赖 pre-commit 地板 + L3 必跑。
 5. **能力分级分工**（建议默认）：判断型流程（value-invest 估值、ingest 财报解读、macro-ellie 解读）→ 强模型。**机械型 = 不写 `wiki/` 的任务**（行情 / 宏观取数、etf-momentum 快照、verify-cli 驱动、`raw/` 采集落盘）→ 任意通过冒烟的模型。**注意 scheduled-ingest 回写 wiki 静态章节段、wiki-review 改 wiki 正文均属写入类**，必须过冒烟 #2 才可跑（无"机械任务"名义的未校验写入旁路）。
 6. **状态共享走 repo**：教训、偏好、约定一律落 AGENTS.md / `docs/` / `log.md`，不留 harness 私有记忆（Claude auto-memory、Hermes 的 MEMORY.md / SOUL.md 体系）。任一 harness 的项目级记忆文件若生成在仓库内，加入 `.gitignore`，防单 harness 私有状态混入共享事实源。
 7. **破坏性操作基线**：`git push` / 改写历史 / 批量删除，任何 harness 默认须用户确认；**任何 agent 禁止 `git commit --no-verify`（pre-commit 旁路），仅限用户人工执行**——pre-commit 是混用下唯一对所有 agent 生效的强制点，堵不住 `--no-verify` 这条对弱遵循模型就不成立。

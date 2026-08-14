@@ -6,7 +6,7 @@
 #
 # 做四件事：① git pre-commit 隐私闸门 ② 同步 Codex/Claude skill 入口
 #          ③ 刷新 AGENTS.md skill 索引块 ④ 检查 python 依赖。
-# 各 harness 鉴权/模型 + verify-cli 配置见 docs/harness-setup.md。
+# 各 harness 鉴权/模型 + verify-cli 可选 fallback 配置见 docs/harness-setup.md。
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
@@ -42,4 +42,4 @@ if [ -n "${miss}" ]; then
   echo "   → 安装缺失必需项：pip install --break-system-packages${miss}"
 fi
 
-echo "== bootstrap 完成。各 harness 鉴权/模型 + verify-cli(llm.json) 配置见 docs/harness-setup.md =="
+echo "== bootstrap 完成。各 harness 鉴权/模型 + verify-cli 可选 fallback 配置见 docs/harness-setup.md =="
